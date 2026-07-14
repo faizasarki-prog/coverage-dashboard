@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Coverage Survey Dashboard — Concept</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#163628;
+    --ink-mid:#204A37;
+    --gold:#D9A441;
+    --gold-dark:#8A5A17;
+    --sand:#F6F1E4;
+    --sand-dark:#E8DFC7;
+    --olive:#3B6B4C;
+    --olive-dark:#22432E;
+    --red:#B23A3A;
+    --red-dark:#6E2020;
+    --white:#FFFFFF;
+    --text-primary:#163628;
+    --text-secondary:#5B6160;
+    --text-muted:#8B948E;
+    --border:#E4DFCF;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    font-family:'IBM Plex Sans', sans-serif;
+    background:var(--sand);
+    color:var(--text-primary);
+    display:flex;
+    min-height:100vh;
+  }
+  .eyebrow{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:var(--text-muted);
+    font-weight:500;
+  }
+
+  /* Sidebar */
+  .sidebar{
+    width:230px;
+    background:var(--ink);
+    color:#C7D6CC;
+    padding:28px 0 20px;
+    flex-shrink:0;
+  }
+  .brand{
+    padding:0 24px 24px;
+    border-bottom:1px solid rgba(255,255,255,0.08);
+    margin-bottom:20px;
+  }
+  .brand-name{
+    font-family:'Fraunces', serif;
+    font-size:19px;
+    font-weight:600;
+    color:#fff;
+    letter-spacing:0.01em;
+  }
+  .brand-sub{
+    font-size:12px;
+    color:#8FA895;
+    margin-top:2px;
+  }
+  .nav-group{ padding:0 12px; margin-bottom:22px; }
+  .nav-label{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10px;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color:#5E7A67;
+    padding:0 12px 8px;
+  }
+  .nav-item{
+    display:flex; align-items:center; gap:10px;
+    font-size:13.5px; color:#B9CBBE;
+    padding:9px 12px;
+    border-left:2px solid transparent;
+    border-radius:0 6px 6px 0;
+    cursor:default;
+  }
+  .nav-item.active{
+    background:rgba(232,163,61,0.14);
+    border-left:2px solid var(--gold);
+    color:#fff;
+    font-weight:500;
+  }
+  .nav-dot{ width:6px; height:6px; border-radius:50%; background:currentColor; opacity:0.6; flex-shrink:0; }
+
+  /* Main */
+  .main{ flex:1; min-width:0; padding:32px 40px 56px; }
+  .topbar{
+    display:flex; justify-content:space-between; align-items:flex-start;
+    margin-bottom:32px;
+  }
+  .topbar h1{
+    font-family:'Fraunces', serif;
+    font-size:26px; font-weight:600;
+    color:var(--ink);
+  }
+  .topbar .loc{ font-size:13px; color:var(--text-secondary); margin-top:4px; }
+  .status-pill{
+    display:inline-flex; align-items:center; gap:6px;
+    background:var(--olive); color:#EAF1E4;
+    font-size:12px; font-weight:500;
+    padding:5px 12px; border-radius:20px;
+  }
+  .status-pill .dot{ width:6px; height:6px; border-radius:50%; background:#EAF1E4; }
+
+  /* Hero */
+  .hero{
+    background:var(--ink);
+    border-radius:16px;
+    padding:32px 36px;
+    display:flex;
+    align-items:center;
+    gap:40px;
+    margin-bottom:36px;
+  }
+  .dial-wrap{ position:relative; width:150px; height:150px; flex-shrink:0; }
+  .dial-num{
+    position:absolute; inset:0;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+  }
+  .dial-num .n{ font-family:'Fraunces', serif; font-size:34px; font-weight:600; color:#fff; }
+  .dial-num .l{ font-family:'IBM Plex Mono', monospace; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:var(--gold); margin-top:2px; }
+  .hero-stats{ display:flex; gap:36px; flex-wrap:wrap; }
+  .hero-stat .eyebrow{ color:#8FA895; }
+  .hero-stat .n{ font-family:'Fraunces', serif; font-size:26px; font-weight:600; color:#fff; margin-top:4px; }
+  .hero-stat .d{ font-size:12px; color:#9CB5A2; margin-top:3px; max-width:150px; line-height:1.4; }
+
+  /* Sections */
+  .section{ margin-bottom:32px; }
+  .section-head{
+    display:flex; align-items:baseline; gap:10px;
+    margin-bottom:14px;
+  }
+  .section-head h2{
+    font-family:'Fraunces', serif; font-size:16px; font-weight:600; color:var(--ink);
+  }
+  .section-head .count{ font-size:12px; color:var(--text-muted); }
+  hr{ border:none; border-top:1px solid var(--border); margin: 6px 0 16px; }
+
+  .stat-row{ display:grid; grid-template-columns:repeat(auto-fit, minmax(160px,1fr)); gap:20px; }
+  .stat{ padding-right:16px; }
+  .stat .eyebrow{ margin-bottom:6px; }
+  .stat .n{ font-family:'Fraunces', serif; font-size:24px; font-weight:600; color:var(--ink); }
+  .stat .n.olive{ color:var(--olive-dark); }
+  .stat .d{ font-size:12px; color:var(--text-secondary); margin-top:4px; line-height:1.45; }
+
+  /* Panels */
+  .panels{ display:grid; grid-template-columns:1.3fr 1fr; gap:20px; }
+  .panel{ background:var(--white); border:1px solid var(--border); border-radius:12px; padding:20px 22px; }
+  .panel-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+  .panel-head h3{ font-size:14px; font-weight:600; color:var(--ink); }
+  .panel-head .sub{ font-size:11.5px; color:var(--text-muted); margin-top:2px; }
+  .bars{ display:flex; align-items:flex-end; gap:6px; height:110px; }
+  .bar{ flex:1; background:var(--gold); border-radius:3px 3px 0 0; opacity:0.85; }
+  .bar.low{ background:var(--sand-dark); }
+  .cdd-row{ display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--border); font-size:13px; }
+  .cdd-row:last-child{ border-bottom:none; }
+  .cdd-tag{ font-size:11px; font-weight:500; padding:3px 9px; border-radius:20px; }
+  .cdd-tag.yes{ background:#E5EEDD; color:var(--olive-dark); }
+  .cdd-tag.no{ background:#F6E2E2; color:var(--red-dark); }
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+  <div class="brand">
+    <div class="brand-name">SARMAAN II</div>
+    <div class="brand-sub">Coverage survey dashboard</div>
+  </div>
+  <div class="nav-group">
+    <div class="nav-label">Overview</div>
+    <div class="nav-item active"><span class="nav-dot"></span>Demography</div>
+  </div>
+  <div class="nav-group">
+    <div class="nav-label">Analysis</div>
+    <div class="nav-item"><span class="nav-dot"></span>Completion</div>
+    <div class="nav-item"><span class="nav-dot"></span>GIS analysis</div>
+    <div class="nav-item"><span class="nav-dot"></span>Data quality checks</div>
+    <div class="nav-item"><span class="nav-dot"></span>Supportive supervision</div>
+    <div class="nav-item"><span class="nav-dot"></span>Advanced analytics</div>
+  </div>
+  <div class="nav-group">
+    <div class="nav-label">System</div>
+    <div class="nav-item"><span class="nav-dot"></span>Validation</div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="topbar">
+    <div>
+      <h1>Demography overview</h1>
+      <div class="loc">SARMAAN II — Sokoto, Nigeria</div>
+    </div>
+    <div class="status-pill"><span class="dot"></span>Live data</div>
+  </div>
+
+  <div class="hero">
+    <div class="dial-wrap">
+      <svg width="150" height="150" viewBox="0 0 150 150">
+        <circle cx="75" cy="75" r="62" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="12"/>
+        <circle cx="75" cy="75" r="62" fill="none" stroke="#D9A441" stroke-width="12"
+          stroke-linecap="round"
+          stroke-dasharray="389.5" stroke-dashoffset="36.2"
+          transform="rotate(-90 75 75)"/>
+      </svg>
+      <div class="dial-num">
+        <div class="n">90.7%</div>
+        <div class="l">Coverage rate</div>
+      </div>
+    </div>
+    <div class="hero-stats">
+      <div class="hero-stat">
+        <div class="eyebrow">Households covered</div>
+        <div class="n">1,705</div>
+        <div class="d">Consenting households enrolled across all LGAs</div>
+      </div>
+      <div class="hero-stat">
+        <div class="eyebrow">Eligible children 1–59m</div>
+        <div class="n">2,959</div>
+        <div class="d">Qualify for AZM under MDA eligibility criteria</div>
+      </div>
+      <div class="hero-stat">
+        <div class="eyebrow">Swallow rate</div>
+        <div class="n">99.7%</div>
+        <div class="d">Of children offered AZM, share who swallowed the dose</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-head"><h2>AZM administration</h2><span class="count">4 metrics</span></div>
+    <hr>
+    <div class="stat-row">
+      <div class="stat">
+        <div class="eyebrow">Children &lt; 18 years</div>
+        <div class="n">4,047</div>
+        <div class="d">Under 18 listed within surveyed households</div>
+      </div>
+      <div class="stat">
+        <div class="eyebrow">Offered AZM</div>
+        <div class="n">2,684</div>
+        <div class="d">Eligible children offered azithromycin</div>
+      </div>
+      <div class="stat">
+        <div class="eyebrow">Swallowed AZM</div>
+        <div class="n">2,675</div>
+        <div class="d">Successfully swallowed under observation</div>
+      </div>
+      <div class="stat">
+        <div class="eyebrow">Vaccination cards seen</div>
+        <div class="n olive">112</div>
+        <div class="d">Cards seen and verified by the RA on-visit</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-head"><h2>Geographic reach</h2><span class="count">3 metrics</span></div>
+    <hr>
+    <div class="stat-row">
+      <div class="stat">
+        <div class="eyebrow">LGAs reached</div>
+        <div class="n">6</div>
+        <div class="d">Distinct LGAs with at least one household surveyed</div>
+      </div>
+      <div class="stat">
+        <div class="eyebrow">Wards reached</div>
+        <div class="n">30</div>
+        <div class="d">Distinct sub-LGA administrative units covered</div>
+      </div>
+      <div class="stat">
+        <div class="eyebrow">Communities reached</div>
+        <div class="n">30</div>
+        <div class="d">Distinct settlements where enumeration took place</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-head"><h2>Field team</h2><span class="count">1 metric</span></div>
+    <hr>
+    <div class="stat-row">
+      <div class="stat">
+        <div class="eyebrow">Active research assistants</div>
+        <div class="n">41</div>
+        <div class="d">Submitted at least one completed household form</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panels">
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <h3>Households reached per day</h3>
+          <div class="sub">Daily count during the survey period</div>
+        </div>
+      </div>
+      <div class="bars">
+        <div class="bar low" style="height:38%"></div>
+        <div class="bar" style="height:62%"></div>
+        <div class="bar" style="height:71%"></div>
+        <div class="bar" style="height:55%"></div>
+        <div class="bar" style="height:88%"></div>
+        <div class="bar" style="height:94%"></div>
+        <div class="bar low" style="height:44%"></div>
+        <div class="bar" style="height:80%"></div>
+        <div class="bar" style="height:67%"></div>
+        <div class="bar" style="height:100%"></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <h3>Visitation by CDD</h3>
+          <div class="sub">CDD visited before the MDA (Q86)</div>
+        </div>
+      </div>
+      <div class="cdd-row"><span>Sokoto North</span><span class="cdd-tag yes">92% yes</span></div>
+      <div class="cdd-row"><span>Wamakko</span><span class="cdd-tag yes">88% yes</span></div>
+      <div class="cdd-row"><span>Kware</span><span class="cdd-tag no">61% yes</span></div>
+      <div class="cdd-row"><span>Dange Shuni</span><span class="cdd-tag yes">85% yes</span></div>
+      <div class="cdd-row"><span>Tangaza</span><span class="cdd-tag no">58% yes</span></div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

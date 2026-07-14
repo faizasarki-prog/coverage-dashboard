@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SARMAAN II — Coverage Survey Dashboard</title>
+  <link rel="icon" type="image/jpeg" href="https://ehealthafrica.org/favicon.ico">
+  <link rel="stylesheet" href="/static/css/styles.css?v=2" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+</head>
+<body>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner-box">
+    <div class="spinner"></div>
+    <p id="loadingMsg">Loading…</p>
+  </div>
+</div>
+<div class="toast-container" id="toastContainer"></div>
+
+<div class="shell">
+  <!-- ── Sidebar ─────────────────────────────────────────────── -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon"><i class="bi bi-clipboard-data-fill"></i></div>
+      <div class="brand-text">
+        <h2>SARMAAN II</h2>
+        <p class="sidebar-brand-subtitle">Coverage Survey Dashboard</p>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-group">
+        <div class="nav-section-label">Overview</div>
+        <div class="nav-item active" data-page="home"><span class="nav-dot"></span><span class="label">Home</span></div>
+      </div>
+      <div class="nav-group">
+        <div class="nav-section-label">Analysis</div>
+        <div class="nav-item" data-page="completion"><span class="nav-dot"></span><span class="label">Completion</span></div>
+        <div class="nav-item" data-page="quality"><span class="nav-dot"></span><span class="label">Quality Checks</span></div>
+        <div class="nav-item" data-page="supervision"><span class="nav-dot"></span><span class="label">Supportive Supervision</span></div>
+        <div class="nav-item" data-page="geospatial"><span class="nav-dot"></span><span class="label">Geospatial</span></div>
+        <div class="nav-item" data-page="ai"><span class="nav-dot"></span><span class="label">Advanced Analytics</span></div>
+      </div>
+      <div class="nav-group">
+        <div class="nav-section-label">System</div>
+        <div class="nav-item" data-page="validators"><span class="nav-dot"></span><span class="label">Validators</span></div>
+      </div>
+    </nav>
+    <div class="sidebar-footer">
+      <div id="lastUpdated" style="font-size:.68rem;color:rgba(255,255,255,.45)">Not yet loaded</div>
+      <div style="margin-top:8px;font-size:.68rem;color:rgba(255,255,255,.45);text-align:center">
+        Powered by <a href="https://ehealthafrica.org" target="_blank" rel="noopener" style="color:rgba(255,255,255,.6);text-decoration:underline">eHealth Africa</a>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── Bug Report Modal ──────────────────────────────────────── -->
+  <div id="bugModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2000;align-items:center;justify-content:center">
+    <div style="background:#fff;border-radius:14px;padding:28px 32px;width:90%;max-width:480px;box-shadow:0 8px 32px rgba(0,0,0,.18)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+        <h3 style="font-size:1rem;font-weight:800;color:var(--ink);display:flex;align-items:center;gap:8px">
+          <i class="bi bi-bug-fill" style="color:#dc2626"></i> Report a Bug
+        </h3>
+        <button onclick="closeBugReport()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:var(--text-muted)">✕</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div>
+          <label style="font-size:.74rem;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:4px">Title *</label>
+          <input id="bugTitle" type="text" placeholder="Brief description of the issue"
+                 style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:.83rem;outline:none" />
+        </div>
+        <div>
+          <label style="font-size:.74rem;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:4px">Description</label>
+          <textarea id="bugDesc" rows="4" placeholder="Steps to reproduce, what you expected vs what happened…"
+                    style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:.83rem;resize:vertical;outline:none"></textarea>
+        </div>
+        <div style="display:flex;gap:12px">
+          <div style="flex:1">
+            <label style="font-size:.74rem;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:4px">Severity</label>
+            <select id="bugSeverity" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:.83rem;outline:none">
+              <option value="low">Low</option>
+              <option value="medium" selected>Medium</option>
+              <option value="high">High</option>
+            </select>
+          </div>
+          <div style="flex:1">
+            <label style="font-size:.74rem;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:4px">Page</label>
+            <input id="bugPage" type="text" value="Dashboard" readonly
+                   style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:.83rem;background:var(--sand);outline:none" />
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end">
+        <button onclick="closeBugReport()" style="padding:8px 18px;border:1px solid var(--border);border-radius:8px;background:var(--white);font-size:.82rem;cursor:pointer">Cancel</button>
+        <button onclick="submitBugReport()" style="padding:8px 20px;border:none;border-radius:8px;background:var(--olive);color:#fff;font-size:.82rem;font-weight:700;cursor:pointer">
+          <i class="bi bi-send"></i> Submit
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Filter drawer ──────────────────────────────────────── -->
+  <div class="drawer-overlay" id="drawerOverlay" onclick="closeFilterDrawer()"></div>
+  <div class="filter-drawer" id="filterDrawer">
+    <div class="filter-drawer-head">
+      <h3><i class="bi bi-funnel-fill"></i> Filters</h3>
+      <button class="fd-close" onclick="closeFilterDrawer()" aria-label="Close">✕</button>
+    </div>
+    <div class="filter-drawer-sub">Drill down by area and research assistant</div>
+    <div class="filter-drawer-body">
+      <div class="filter-group">
+        <label><i class="bi bi-globe"></i> LGA</label>
+        <select id="drLGA" onchange="onDrawerLGAChange()">
+          <option value="">All LGAs</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label><i class="bi bi-pin-map-fill"></i> Ward</label>
+        <select id="drWard" onchange="onDrawerWardChange()">
+          <option value="">All Wards</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label><i class="bi bi-buildings-fill"></i> Community</label>
+        <select id="drCommunity">
+          <option value="">All Communities</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label><i class="bi bi-person-badge-fill"></i> Research Assistant</label>
+        <select id="drRA">
+          <option value="">All RAs</option>
+        </select>
+      </div>
+    </div>
+    <div class="filter-drawer-foot">
+      <button class="btn btn-outline" onclick="clearDrawerFilters()">Clear</button>
+      <button class="btn btn-primary" style="flex:1" onclick="applyDrawerFilters()"><i class="bi bi-check2-circle"></i> Apply Filters</button>
+    </div>
+  </div>
+
+  <!-- ── Settings modal ─────────────────────────────────────── -->
+  <div class="modal-overlay" id="settingsModal">
+    <div class="modal-box">
+      <div class="modal-head">
+        <h3>Dashboard Settings</h3>
+        <button class="modal-close" onclick="closeSettings()">✕</button>
+      </div>
+      <div class="modal-tabs">
+        <div class="modal-tab active" data-tab="appearance" onclick="switchSettingsTab('appearance')">Appearance</div>
+      </div>
+      <div class="modal-body">
+        <div id="tab-appearance" class="settings-tab-pane">
+          <div class="modal-section">
+            <h4 style="margin-bottom:12px">Color Theme</h4>
+            <div class="theme-grid">
+              <div class="theme-card active" data-theme="green" onclick="applyTheme('green')">
+                <div class="tc-preview">
+                  <div class="tc-sidebar" style="background:#14532d"></div>
+                  <div class="tc-content" style="background:#f0fdf4">
+                    <div class="tc-topbar" style="background:#fff"></div>
+                    <div class="tc-cards">
+                      <div style="background:#dcfce7"></div>
+                      <div style="background:#16a34a;opacity:.6"></div>
+                      <div style="background:#dcfce7"></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="tc-meta">
+                  <i class="bi bi-tree-fill" style="color:#16a34a"></i>
+                  <span>Forest Green</span>
+                  <i class="bi bi-check-circle-fill tc-check"></i>
+                </div>
+              </div>
+              <div class="theme-card" data-theme="blue" onclick="applyTheme('blue')">
+                <div class="tc-preview">
+                  <div class="tc-sidebar" style="background:#1e3a5f"></div>
+                  <div class="tc-content" style="background:#eff6ff">
+                    <div class="tc-topbar" style="background:#fff"></div>
+                    <div class="tc-cards">
+                      <div style="background:#dbeafe"></div>
+                      <div style="background:#2563eb;opacity:.6"></div>
+                      <div style="background:#dbeafe"></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="tc-meta">
+                  <i class="bi bi-water" style="color:#2563eb"></i>
+                  <span>Ocean Blue</span>
+                  <i class="bi bi-check-circle-fill tc-check"></i>
+                </div>
+              </div>
+              <div class="theme-card" data-theme="teal" onclick="applyTheme('teal')">
+                <div class="tc-preview">
+                  <div class="tc-sidebar" style="background:#134e4a"></div>
+                  <div class="tc-content" style="background:#f0fdfa">
+                    <div class="tc-topbar" style="background:#fff"></div>
+                    <div class="tc-cards">
+                      <div style="background:#ccfbf1"></div>
+                      <div style="background:#0d9488;opacity:.6"></div>
+                      <div style="background:#ccfbf1"></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="tc-meta">
+                  <i class="bi bi-droplet-fill" style="color:#0d9488"></i>
+                  <span>Deep Teal</span>
+                  <i class="bi bi-check-circle-fill tc-check"></i>
+                </div>
+              </div>
+              <div class="theme-card" data-theme="amber" onclick="applyTheme('amber')">
+                <div class="tc-preview">
+                  <div class="tc-sidebar" style="background:#78350f"></div>
+                  <div class="tc-content" style="background:#fffbeb">
+                    <div class="tc-topbar" style="background:#fff"></div>
+                    <div class="tc-cards">
+                      <div style="background:#fde68a"></div>
+                      <div style="background:#d97706;opacity:.6"></div>
+                      <div style="background:#fde68a"></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="tc-meta">
+                  <i class="bi bi-sun-fill" style="color:#d97706"></i>
+                  <span>Sunset Amber</span>
+                  <i class="bi bi-check-circle-fill tc-check"></i>
+                </div>
+              </div>
+              <div class="theme-card" data-theme="purple" onclick="applyTheme('purple')">
+                <div class="tc-preview">
+                  <div class="tc-sidebar" style="background:#3b0764"></div>
+                  <div class="tc-content" style="background:#faf5ff">
+                    <div class="tc-topbar" style="background:#fff"></div>
+                    <div class="tc-cards">
+                      <div style="background:#ede9fe"></div>
+                      <div style="background:#7c3aed;opacity:.6"></div>
+                      <div style="background:#ede9fe"></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="tc-meta">
+                  <i class="bi bi-gem" style="color:#7c3aed"></i>
+                  <span>Royal Purple</span>
+                  <i class="bi bi-check-circle-fill tc-check"></i>
+                </div>
+              </div>
+              <div class="theme-card" data-theme="charcoal" onclick="applyTheme('charcoal')">
+                <div class="tc-preview">
+                  <div class="tc-sidebar" style="background:#0f172a"></div>
+                  <div class="tc-content" style="background:#1e293b">
+                    <div class="tc-topbar" style="background:#111827"></div>
+                    <div class="tc-cards">
+                      <div style="background:#273344"></div>
+                      <div style="background:#6366f1;opacity:.7"></div>
+                      <div style="background:#273344"></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="tc-meta">
+                  <i class="bi bi-moon-stars-fill" style="color:#818cf8"></i>
+                  <span>Midnight</span>
+                  <i class="bi bi-check-circle-fill tc-check"></i>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="modal-section" style="margin-top:4px">
+            <h4 style="margin-bottom:10px">Display Mode</h4>
+            <div class="dark-toggle" onclick="toggleDarkMode()" id="darkToggleWrap">
+              <i class="bi bi-moon-stars-fill" style="font-size:1.1rem;color:var(--primary)"></i>
+              <div class="dark-toggle-label">
+                Dark Mode
+                <div class="dark-toggle-sub">Dims backgrounds across all panels</div>
+              </div>
+              <div class="toggle-track" id="darkToggle">
+                <div class="toggle-thumb"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeSettings()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Main ───────────────────────────────────────────────── -->
+  <div class="main-content" id="mainContent">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="sidebar-toggle" id="sidebarToggle"><i class="bi bi-layout-sidebar-inset"></i></button>
+        <div>
+          <div class="topbar-title">Coverage Survey Dashboard</div>
+          <div class="topbar-subtitle">SARMAAN II — Sokoto, Nigeria</div>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <span class="status-badge badge-success" id="dataStatusBadge">Live Data</span>
+        <button class="btn-icon" onclick="openFilterDrawer()" title="Drill-down filters"><i class="bi bi-funnel-fill"></i></button>
+        <button class="btn-icon" onclick="openSettings()" title="Theme &amp; Settings"><i class="bi bi-palette-fill"></i></button>
+        <button class="btn btn-outline" id="refreshBtn" onclick="loadAll()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+      </div>
+    </header>
+
+    <!-- Filter bar -->
+    <div class="filter-bar" id="filterBar">
+      <span class="filter-label">Active Filters:</span>
+      <div id="filterChips"></div>
+      <button class="btn-clear-filters" id="clearFilters">✕ Clear all</button>
+    </div>
+
+    <main class="page-content">
+
+      <!-- ═══ HOME ═══ -->
+      <section class="page-section active" id="page-home">
+        <div class="page-header">
+          <h2><i class="bi bi-speedometer2"></i> Demographic Overview</h2>
+        </div>
+
+        <!-- Hero: Coverage dial + key stats -->
+        <div class="hero">
+          <div class="dial-wrap">
+            <svg width="130" height="130" viewBox="0 0 130 130">
+              <circle cx="65" cy="65" r="54" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="10"/>
+              <circle cx="65" cy="65" r="54" fill="none" stroke="#D9A441" stroke-width="10"
+                stroke-linecap="round"
+                stroke-dasharray="339.3" stroke-dashoffset="31.5"
+                transform="rotate(-90 65 65)" id="heroDial"/>
+            </svg>
+            <div class="dial-num">
+              <div class="n" id="heroDialValue">-</div>
+              <div class="l">Coverage rate</div>
+            </div>
+          </div>
+          <div class="hero-stats">
+            <div class="hero-stat">
+              <div class="eyebrow">Households covered</div>
+              <div class="n" id="heroHouseholds">-</div>
+              <div class="d">Consenting households enrolled across all LGAs</div>
+            </div>
+            <div class="hero-stat">
+              <div class="eyebrow">Eligible children 1–59m</div>
+              <div class="n" id="heroEligible">-</div>
+              <div class="d">Qualify for AZM under MDA eligibility criteria</div>
+            </div>
+            <div class="hero-stat">
+              <div class="eyebrow">Swallow rate</div>
+              <div class="n" id="heroSwallowRate">-</div>
+              <div class="d">Of children offered AZM, share who swallowed the dose</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="stat-row">
+          <div class="stat">
+            <div class="stat-icon green"><i class="bi bi-people-fill"></i></div>
+            <div class="eyebrow">Children &lt; 18 years</div>
+            <div class="n" id="kpi-children-u18">-</div>
+            <div class="d">Total number of children under 18 years of age listed within surveyed households</div>
+          </div>
+          <div class="stat">
+            <div class="stat-icon gold"><i class="bi bi-capsule-pill"></i></div>
+            <div class="eyebrow">Offered AZM</div>
+            <div class="n" id="kpi-offered">-</div>
+            <div class="d">Eligible children who were offered azithromycin during the MDA campaign</div>
+          </div>
+          <div class="stat">
+            <div class="stat-icon green"><i class="bi bi-check-circle-fill"></i></div>
+            <div class="eyebrow">Swallowed AZM</div>
+            <div class="n" id="kpi-swallowed">-</div>
+            <div class="d">Children who successfully swallowed the AZM dose under observation</div>
+          </div>
+          <div class="stat">
+            <div class="stat-icon ink"><i class="bi bi-clipboard2-data-fill"></i></div>
+            <div class="eyebrow">Vaccination cards seen</div>
+            <div class="n olive" id="kpi-vacc-cards">-</div>
+            <div class="d">Number of eligible children whose vaccination card was seen and verified by the RA during the visit</div>
+          </div>
+          <div class="stat">
+            <div class="stat-icon green"><i class="bi bi-geo-alt-fill"></i></div>
+            <div class="eyebrow">LGAs reached</div>
+            <div class="n" id="kpi-lgas">-</div>
+            <div class="d">Number of distinct Local Government Areas where at least one household was surveyed</div>
+          </div>
+          <div class="stat">
+            <div class="stat-icon green"><i class="bi bi-pin-map-fill"></i></div>
+            <div class="eyebrow">Wards reached</div>
+            <div class="n" id="kpi-wards">-</div>
+            <div class="d">Number of distinct wards (sub-LGA administrative units) covered by the survey</div>
+          </div>
+          <div class="stat">
+            <div class="stat-icon gold"><i class="bi bi-buildings-fill"></i></div>
+            <div class="eyebrow">Communities reached</div>
+            <div class="n" id="kpi-communities">-</div>
+            <div class="d">Number of distinct communities or settlements where survey enumeration took place</div>
+          </div>
+          <div class="stat">
+            <div class="stat-icon ink"><i class="bi bi-person-badge-fill"></i></div>
+            <div class="eyebrow">Research assistants</div>
+            <div class="n" id="kpi-ras">-</div>
+            <div class="d">Number of active field research assistants who submitted at least one completed household form</div>
+          </div>
+        </div>
+
+        <div class="panels">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h3>Households reached per day</h3>
+                <div class="sub">Daily count of households reached during the survey period. Use the toggle to switch between bar and line view.</div>
+              </div>
+              <div style="display:flex;background:var(--sand);border-radius:8px;padding:3px;gap:2px" id="dailyViewToggle">
+                <button onclick="setDailyView('bar')" title="Bar chart"
+                  style="width:30px;height:26px;border:none;border-radius:6px;cursor:pointer;background:var(--olive);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:.85rem;transition:.15s">
+                  <i class="bi bi-bar-chart-fill"></i>
+                </button>
+                <button onclick="setDailyView('line')" title="Line chart"
+                  style="width:30px;height:26px;border:none;border-radius:6px;cursor:pointer;background:transparent;color:var(--text-muted);display:inline-flex;align-items:center;justify-content:center;font-size:.85rem;transition:.15s">
+                  <i class="bi bi-graph-up"></i>
+                </button>
+              </div>
+            </div>
+            <div style="height:260px"><canvas id="dailyChart"></canvas></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h3>Visitation by CDD</h3>
+                <div class="sub">Whether a Community Drug Distributor (CDD) visited the household before the MDA. A high "No" rate may indicate gaps in community mobilisation.</div>
+              </div>
+            </div>
+            <div style="position:relative;height:240px"><canvas id="cddDoughnutChart"></canvas></div>
+            <div id="cddLegend" style="display:flex;justify-content:center;gap:24px;padding:8px 0 4px;flex-wrap:wrap"></div>
+          </div>
+        </div>
+
+        <div class="panels">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h3>AZM Treatment Cascade</h3>
+                <div class="sub">Children at each stage of the treatment cascade: total recorded → eligible (1-59 months) → offered azithromycin → confirmed swallowed. Bar height shows the count at each stage and reveals where drop-offs occur.</div>
+              </div>
+            </div>
+            <div style="height:300px"><canvas id="cascadeChart"></canvas></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h3>LGA Completion</h3>
+                <div class="sub">Households reached vs planned per LGA. The tracker shows how many LGAs have hit the ≥71% target threshold. Click any LGA row to filter the dashboard.</div>
+              </div>
+              <div style="display:flex;gap:6px;align-items:center">
+                <span class="eyebrow">Sort:</span>
+                <button class="lga-sort-btn active" data-sort="reached" onclick="setLgaSort('reached')" style="padding:3px 9px;font-size:.7rem;font-weight:600;border:1.5px solid var(--border);border-radius:6px;cursor:pointer;background:var(--sand);color:var(--text-primary);transition:.12s">Reached</button>
+                <button class="lga-sort-btn" data-sort="pct" onclick="setLgaSort('pct')" style="padding:3px 9px;font-size:.7rem;font-weight:600;border:1.5px solid var(--border);border-radius:6px;cursor:pointer;background:var(--sand);color:var(--text-primary);transition:.12s">%</button>
+              </div>
+            </div>
+            <div id="lgaCompletionTracker" style="display:flex;align-items:center;justify-content:center;gap:24px;padding:8px 16px;flex-wrap:wrap"></div>
+            <div id="lgaCompletionList" style="max-height:360px;overflow-y:auto;padding:4px 2px"><p style="text-align:center;color:var(--text-muted);padding:20px">Loading…</p></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <h3>Research Assistants by Performance</h3>
+              <div class="sub">RAs grouped by LGA and classified as Below Target, Meet Target, or Above Target based on their household submission count relative to the median. Use the filter buttons to focus on a specific status group.</div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <span id="raMetSummary" style="font-size:.85rem;font-weight:700;color:var(--olive-dark);padding:4px 14px;background:#E5EEDD;border-radius:20px"></span>
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;padding:0 0 10px;flex-wrap:wrap">
+            <button class="ra-filter-btn active" data-rastatus="all" onclick="setRaFilter('all')" style="padding:4px 14px;font-size:.75rem;font-weight:600;border:1.5px solid var(--border);border-radius:20px;cursor:pointer;background:var(--sand);color:var(--text-primary);transition:.12s">All RAs</button>
+            <button class="ra-filter-btn" data-rastatus="below" onclick="setRaFilter('below')" style="padding:4px 14px;font-size:.75rem;font-weight:600;border:1.5px solid var(--border);border-radius:20px;cursor:pointer;background:var(--sand);color:var(--text-primary);transition:.12s">Below Target</button>
+            <button class="ra-filter-btn" data-rastatus="meet" onclick="setRaFilter('meet')" style="padding:4px 14px;font-size:.75rem;font-weight:600;border:1.5px solid var(--border);border-radius:20px;cursor:pointer;background:var(--sand);color:var(--text-primary);transition:.12s">Meet Target</button>
+            <button class="ra-filter-btn" data-rastatus="above" onclick="setRaFilter('above')" style="padding:4px 14px;font-size:.75rem;font-weight:600;border:1.5px solid var(--border);border-radius:20px;cursor:pointer;background:var(--sand);color:var(--text-primary);transition:.12s">Above Target</button>
+          </div>
+          <div id="raPerformanceWrap" style="max-height:400px;overflow-y:auto"><p style="text-align:center;color:var(--text-muted);padding:20px">Loading RA performance data…</p></div>
+        </div>
+      </section>
+
+      <!-- ═══ COMPLETION ═══ -->
+      <section class="page-section" id="page-completion">
+        <div class="page-header">
+          <h2><i class="bi bi-clipboard2-data-fill"></i> Completion Status</h2>
+        </div>
+
+        <div class="panels single">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h3>Planned vs Reached by LGA</h3>
+                <div class="sub">Progress bar per LGA — colour: olive ≥71%, gold 31–70%, red ≤30%</div>
+              </div>
+              <div style="display:flex;gap:6px;align-items:center">
+                <span class="eyebrow">Sort:</span>
+                <button class="lga-sort-btn active" data-sort="reached" onclick="setLgaSort('reached')" style="padding:3px 9px;font-size:.7rem;font-weight:600;border:1.5px solid var(--border);border-radius:6px;cursor:pointer;background:var(--sand);color:var(--text-primary);transition:.12s">Reached</button>
+                <button class="lga-sort-btn" data-sort="pct" onclick="setLgaSort('pct')" style="padding:3px 9px;font-size:.7rem;font-weight:600;border:1.5px solid var(--border);border-radius:6px;cursor:pointer;background:var(--sand);color:var(--text-primary);transition:.12s">%</button>
+              </div>
+            </div>
+            <div id="lgaCompletionListPage" style="max-height:520px;overflow-y:auto;padding:4px 2px"></div>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-top:20px">
+          <div class="panel-head">
+            <div>
+              <h3>Settlement Completion Table</h3>
+              <div class="sub">Detailed breakdown by ward and community</div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <span id="completeSummary" style="font-size:.85rem;color:var(--olive-dark);font-weight:700;padding:4px 14px;background:#E5EEDD;border-radius:20px"></span>
+              <input id="settlementSearch" placeholder="Search…" style="padding:6px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:.8rem;width:160px;background:var(--sand)" />
+              <button class="btn-dl-csv" onclick="downloadTableCSV('completionTable','settlement_completion')" title="Download CSV"><i class="bi bi-download"></i> CSV</button>
+            </div>
+          </div>
+          <div class="table-wrapper">
+            <table id="completionTable" class="completion-table">
+              <colgroup>
+                <col style="width:15%">
+                <col style="width:15%">
+                <col style="width:25%">
+                <col style="width:12%">
+                <col style="width:12%">
+                <col style="width:10%">
+                <col style="width:11%">
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>LGA</th>
+                  <th>Ward</th>
+                  <th>Community</th>
+                  <th style="text-align:right">Planned</th>
+                  <th style="text-align:right">Reached</th>
+                  <th style="text-align:center">Status</th>
+                  <th>RAs</th>
+                </tr>
+              </thead>
+              <tbody id="completionTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ QUALITY CHECKS ═══ -->
+      <section class="page-section" id="page-quality">
+        <div class="page-header">
+          <h2><i class="bi bi-shield-check"></i> Quality Checks</h2>
+        </div>
+
+        <div class="stat-row">
+          <div class="stat">
+            <div class="stat-icon ink"><i class="bi bi-house-exclamation-fill"></i></div>
+            <div class="eyebrow">Duplicate Households</div>
+            <div class="n" id="qc-dup-hh">-</div>
+            <div class="d">Same HH code used more than once</div>
+          </div>
+          <div class="stat">
+            <div class="stat-icon gold"><i class="bi bi-people-fill"></i></div>
+            <div class="eyebrow">Repeated Child Selection</div>
+            <div class="n" id="qc-rep-child">-</div>
+            <div class="d">Same child selected twice in a household</div>
+          </div>
+          <div class="stat">
+            <div class="stat-icon green"><i class="bi bi-person-badge-fill"></i></div>
+            <div class="eyebrow">Active Research Assistants</div>
+            <div class="n" id="qc-active-ras">-</div>
+            <div class="d">Unique research assistants in the field</div>
+          </div>
+          <div class="stat">
+            <div class="stat-icon ink"><i class="bi bi-person-x-fill"></i></div>
+            <div class="eyebrow">Ineligible Children</div>
+            <div class="n" id="qc-ineligible">-</div>
+            <div class="d">Children outside 1–59 month age range</div>
+          </div>
+          <div class="stat">
+            <div class="stat-icon gold"><i class="bi bi-copy"></i></div>
+            <div class="eyebrow">Duplicate Children</div>
+            <div class="n" id="qc-dup-children">-</div>
+            <div class="d">Same child recorded more than once</div>
+          </div>
+          <div class="stat">
+            <div class="stat-icon green"><i class="bi bi-geo-alt-fill"></i></div>
+            <div class="eyebrow">Settlement Mismatch</div>
+            <div class="n" id="qc-settlement">-</div>
+            <div class="d">LGA / Ward / community conflict</div>
+          </div>
+          <div class="stat">
+            <div class="stat-icon ink"><i class="bi bi-clipboard2-check-fill"></i></div>
+            <div class="eyebrow">Form Validation Issues</div>
+            <div class="n" id="qc-form-validation">-</div>
+            <div class="d">Records that failed or were rejected</div>
+          </div>
+        </div>
+
+        <div class="panels">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h3>Error Summary by LGA</h3>
+                <div class="sub">Breakdown of data quality issues by Local Government Area</div>
+              </div>
+            </div>
+            <div style="height:300px"><canvas id="errorsLgaChart"></canvas></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h3>Error Log by Research Assistant</h3>
+                <div class="sub">Per-RA error details and error rates</div>
+              </div>
+            </div>
+            <div class="table-wrapper" style="max-height:320px">
+              <table>
+                <thead><tr><th>LGA</th><th>Ward</th><th>Community</th><th>RA</th><th>HH Code</th><th>Errors</th></tr></thead>
+                <tbody id="errorLogBody"><tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px">Loading…</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ SUPPORTIVE SUPERVISION ═══ -->
+      <section class="page-section" id="page-supervision">
+        <div class="page-header">
+          <h2><i class="bi bi-shield-exclamation" style="color:var(--gold-dark)"></i> Supportive Supervision</h2>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px;flex-wrap:wrap" id="supBreadcrumb"></div>
+
+        <div class="section">
+          <div class="section-head"><h2>Overview</h2><span class="count">4 metrics</span></div>
+          <hr class="section-hr">
+          <div class="stat-row">
+            <div class="stat">
+              <div class="eyebrow">Total records</div>
+              <div class="n" id="sup-total">-</div>
+              <div class="d">All household records</div>
+            </div>
+            <div class="stat">
+              <div class="eyebrow">Flagged records</div>
+              <div class="n" id="sup-flagged">-</div>
+              <div class="d">Records with errors</div>
+            </div>
+            <div class="stat">
+              <div class="eyebrow">Error rate</div>
+              <div class="n" id="sup-error-rate">-</div>
+              <div class="d">Percentage of records flagged</div>
+            </div>
+            <div class="stat" id="supScoreCard">
+              <div class="eyebrow">Data health</div>
+              <div class="n" id="sup-health">-</div>
+              <div class="d" id="sup-health-lbl">Quality score</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panels">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h3>Error Ranking</h3>
+                <div class="sub">LGAs, wards, or RAs ranked by total errors</div>
+              </div>
+            </div>
+            <div style="overflow-x:auto;overflow-y:auto;max-height:320px">
+              <div id="supRankingScroll" style="min-height:260px;position:relative">
+                <canvas id="supRankingChart"></canvas>
+              </div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h3>Error Distribution</h3>
+                <div class="sub">Proportion of each error type</div>
+              </div>
+            </div>
+            <div style="overflow-x:auto;overflow-y:auto;max-height:320px">
+              <div id="supDistScroll" style="min-height:260px;position:relative">
+                <canvas id="supDistChart"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-top:20px">
+          <div class="panel-head">
+            <h3>Detailed Risk Ranking</h3>
+            <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+              <span class="eyebrow">Filter:</span>
+              <select id="supRiskSelect" onchange="_supFilterByRisk(this.value)" style="font-size:.75rem;padding:5px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--sand);cursor:pointer;color:var(--text-primary)">
+                <option value="">All</option>
+                <option value="High">High</option>
+                <option value="Medium">Medium</option>
+                <option value="Low">Low</option>
+              </select>
+            </div>
+          </div>
+          <div class="table-wrapper" style="overflow-x:auto;max-height:320px;overflow-y:auto">
+            <table id="supTable" style="width:100%;border-collapse:collapse;font-size:.79rem">
+              <thead style="position:sticky;top:0;z-index:1">
+                <tr>
+                  <th id="supLocationHeader" style="text-align:left;white-space:nowrap">Location</th>
+                  <th style="text-align:right;white-space:nowrap">Records</th>
+                  <th style="text-align:right;white-space:nowrap">Errors</th>
+                  <th style="text-align:right;white-space:nowrap;cursor:pointer;user-select:none" onclick="_supSortByCol('score')">Score <span id="supScoreSort" style="font-size:.68rem;color:var(--text-muted)">↓</span></th>
+                  <th style="text-align:center;white-space:nowrap;cursor:pointer;user-select:none" onclick="_supSortByCol('risk')">Risk <span id="supRiskSort" style="font-size:.68rem;color:var(--text-muted)">↕</span></th>
+                </tr>
+              </thead>
+              <tbody id="supTbody"><tr><td colspan="5" style="padding:20px;text-align:center;color:var(--text-muted)">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ GEOSPATIAL ═══ -->
+      <section class="page-section" id="page-geospatial">
+        <div class="page-header">
+          <h2><i class="bi bi-map-fill"></i> Geospatial Analysis</h2>
+          <p>GPS point distribution and data quality</p>
+        </div>
+
+        <div class="section">
+          <div class="section-head"><h2>GPS coverage</h2><span class="count">5 metrics</span></div>
+          <hr class="section-hr">
+          <div class="stat-row">
+            <div class="stat">
+              <div class="eyebrow">Total GPS points</div>
+              <div class="n" id="gis-total-points">-</div>
+              <div class="d">All survey coordinates</div>
+            </div>
+            <div class="stat">
+              <div class="eyebrow">Unique locations</div>
+              <div class="n" id="gis-unique">-</div>
+              <div class="d">Distinct GPS coordinates</div>
+            </div>
+            <div class="stat">
+              <div class="eyebrow">Stacked GPS</div>
+              <div class="n" id="gis-stacked">-</div>
+              <div class="d">Points sharing coordinates</div>
+            </div>
+            <div class="stat">
+              <div class="eyebrow">Stacked %</div>
+              <div class="n" id="gis-stacked-pct">-</div>
+              <div class="d">% of points that are stacked</div>
+            </div>
+            <div class="stat">
+              <div class="eyebrow">Mock GPS</div>
+              <div class="n" id="gis-mock">-</div>
+              <div class="d">Low precision (&lt; 2m)</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <h3>GPS Distribution by LGA</h3>
+              <div class="sub">Total GPS points collected per LGA</div>
+            </div>
+          </div>
+          <div style="height:340px"><canvas id="gpsChart"></canvas></div>
+        </div>
+      </section>
+
+      <!-- ═══ ADVANCED ANALYTICS ═══ -->
+      <section class="page-section" id="page-ai">
+        <div class="page-header">
+          <h2><i class="bi bi-robot"></i> AI &amp; Advanced Analytics</h2>
+          <p>Non-obvious insights, trend forecasting and anomaly detection</p>
+        </div>
+
+        <div class="ai-subtabs">
+          <button class="ai-subtab active" data-aitab="insights"><i class="bi bi-lightbulb"></i> Smart Insights</button>
+          <button class="ai-subtab" data-aitab="regression"><i class="bi bi-graph-up-arrow"></i> Trend &amp; Forecast</button>
+          <button class="ai-subtab" data-aitab="anomaly"><i class="bi bi-exclamation-triangle"></i> Anomaly Detection</button>
+        </div>
+
+        <div class="ai-tab-pane active" id="ai-tab-insights">
+          <div id="aiInsightsGrid" class="ai-insights-grid">
+            <div style="grid-column:1/-1;text-align:center;padding:32px;color:var(--text-muted)">
+              Navigate here after loading data to see AI insights.
+            </div>
+          </div>
+        </div>
+
+        <div class="ai-tab-pane" id="ai-tab-regression">
+          <div class="ai-reg-kpis" id="regKpis"></div>
+          <div class="panel" style="margin-top:16px">
+            <div class="panel-head">
+              <div>
+                <h3>Daily Submissions — Trend &amp; 7-Day Forecast</h3>
+                <div class="sub">Actual vs predicted daily household submissions</div>
+              </div>
+            </div>
+            <div style="height:300px"><canvas id="regressionChart"></canvas></div>
+          </div>
+          <div class="panel" style="margin-top:16px">
+            <div class="panel-head">
+              <div>
+                <h3>LGA Collection Trends</h3>
+                <div class="sub">Daily submission trends per LGA</div>
+              </div>
+            </div>
+            <div id="lgaTrendsBody" style="padding:12px"></div>
+          </div>
+        </div>
+
+        <div class="ai-tab-pane" id="ai-tab-anomaly">
+          <div class="ai-anomaly-grid" id="anomalyGrid">
+            <div style="text-align:center;padding:32px;color:var(--text-muted)">Loading anomaly data…</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ VALIDATORS ═══ -->
+      <section class="page-section" id="page-validators">
+        <div class="page-header">
+          <h2><i class="bi bi-clipboard2-check-fill"></i> Validators Dashboard</h2>
+        </div>
+
+        <div class="section">
+          <div class="section-head"><h2>Validation summary</h2><span class="count">7 metrics</span></div>
+          <hr class="section-hr">
+          <div class="stat-row">
+            <div class="stat">
+              <div class="eyebrow">Total records</div>
+              <div class="n" id="val-total">-</div>
+              <div class="d">All household records</div>
+            </div>
+            <div class="stat">
+              <div class="eyebrow">Validated</div>
+              <div class="n" id="val-validated">-</div>
+              <div class="d">Records reviewed</div>
+            </div>
+            <div class="stat">
+              <div class="eyebrow">Approved</div>
+              <div class="n" id="val-approved">-</div>
+              <div class="d">Passed QC review</div>
+            </div>
+            <div class="stat">
+              <div class="eyebrow">Flagged</div>
+              <div class="n" id="val-flagged">-</div>
+              <div class="d">Records with issues</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-head"><h2>Team status</h2><span class="count">3 metrics</span></div>
+          <hr class="section-hr">
+          <div class="stat-row">
+            <div class="stat">
+              <div class="eyebrow">Outstanding</div>
+              <div class="n" id="val-outstanding">-</div>
+              <div class="d">Not yet reviewed</div>
+            </div>
+            <div class="stat">
+              <div class="eyebrow">Research assistants</div>
+              <div class="n" id="val-ras">-</div>
+              <div class="d">Active RAs</div>
+            </div>
+            <div class="stat">
+              <div class="eyebrow">Duplicate HHs</div>
+              <div class="n" id="val-dup-hh">-</div>
+              <div class="d">Duplicate household IDs</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-bottom:16px">
+          <div class="panel-head">
+            <div>
+              <h3>Validation Tasks (VAL-01 to VAL-06)</h3>
+              <div class="sub">Each validation rule from the Process Document</div>
+            </div>
+          </div>
+          <div id="valTaskList" style="padding:8px 12px"><p style="text-align:center;color:var(--text-muted);padding:16px">Loading…</p></div>
+        </div>
+
+        <!-- Flags table -->
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Flagged Records</h3>
+            <span id="valFlagCount" style="font-size:.8rem;color:var(--text-muted);font-weight:600"></span>
+          </div>
+          <div class="table-wrapper" id="valFlagsWrap" style="max-height:360px;overflow-y:auto">
+            <p style="text-align:center;color:var(--text-muted);padding:20px">Loading…</p>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<!-- ── Chat bot ──────────────────────────────────────────────── -->
+<button class="chat-fab" id="chatFab" title="Ask your data questions">💬</button>
+<div class="chat-panel" id="chatPanel">
+  <div class="chat-header">
+    <h4>💬 Ask Your Data</h4>
+    <button onclick="toggleChat()">✕</button>
+  </div>
+  <div class="chat-messages" id="chatMessages">
+    <div class="chat-msg bot">Hi! I can answer questions about this survey. Try asking about coverage, top LGAs, or data quality.</div>
+  </div>
+  <div class="chat-quick" id="chatQuick">
+    <button onclick="sendQuick('What is the overall coverage percentage?')">Coverage %</button>
+    <button onclick="sendQuick('Which LGA has the most households?')">Top LGA</button>
+    <button onclick="sendQuick('Summarise the data quality issues')">Quality issues</button>
+    <button onclick="sendQuick('How many eligible children were recorded?')">Eligible children</button>
+  </div>
+  <div class="chat-typing" id="chatTyping" style="display:none">● typing…</div>
+  <div class="chat-input-row">
+    <textarea id="chatInput" placeholder="Type your question…" rows="1"
+      onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat();}"></textarea>
+    <button class="chat-send" id="chatSendBtn" onclick="sendChat()">➤</button>
+  </div>
+  <div style="font-size:11px;color:var(--text-muted);padding:6px 12px 10px;text-align:center;line-height:1.4;border-top:1px solid var(--border);">
+    Replies are generated by AI. Only aggregate dashboard metrics are sent - never individual respondent data.
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="/static/js/dashboard.js"></script>
+</body>
+</html>

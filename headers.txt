@@ -1,0 +1,23 @@
+﻿Traceback (most recent call last):
+  File "<string>", line 12, in <module>
+    print(f'  [{i}] {h}')
+    ~~~~~^^^^^^^^^^^^^^^^
+  File "C:\Python314\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f6d1' in position 7: character maps to <undefined>
+
+=== Sheet: SARMAAN II C3 SOKOTO COVERAG... ===
+Rows: 1706, Cols: 313
+Headers (313 cols):
+  [0] start
+  [1] end
+  [2] deviceid
+  [3] Type in your Name
+  [4] Phone Number
+  [5] Location when the form is first started
+  [6] _Location when the form is first started_latitude
+  [7] _Location when the form is first started_longitude
+  [8] _Location when the form is first started_altitude
+  [9] _Location when the form is first started_precision
+  [10] concat_user
