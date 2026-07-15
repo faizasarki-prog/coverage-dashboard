@@ -4,6 +4,7 @@ Serves the SARMAAN II Coverage Survey Dashboard with the AMR dashboard design.
 """
 import os
 import sys
+from datetime import datetime
 from flask import Flask, jsonify, render_template, request
 import pandas as pd
 import numpy as np
@@ -27,13 +28,15 @@ COMMUNITY_MAP_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'd
 cov, child_info, child_eligible = None, None, None
 loaded = False
 community_map = {}  # code -> {name, sample_count, lga, ward}
+data_loaded_at = None
 
 
 def load_data():
-    global cov, child_info, child_eligible, loaded, community_map
+    global cov, child_info, child_eligible, loaded, community_map, data_loaded_at
     if not loaded:
         cov, child_info, child_eligible = load_all_data()
         loaded = True
+        data_loaded_at = datetime.now().strftime('%d %b %Y, %H:%M')
     if not community_map and os.path.exists(COMMUNITY_MAP_PATH):
         try:
             cmap = pd.read_csv(COMMUNITY_MAP_PATH, dtype=str)
@@ -93,6 +96,16 @@ def api_kpis():
     kpis['communities_reached'] = int(df[COL_COMMUNITY].nunique()) if COL_COMMUNITY in df.columns else 0
     kpis['active_ras'] = int(df[COL_RA].nunique()) if COL_RA in df.columns else 0
 
+    # Total planned counts from community_map
+    if community_map:
+        kpis['total_lgas'] = len(set(v.get('lga', '') for v in community_map.values()))
+        kpis['total_wards'] = len(set(v.get('ward', '') for v in community_map.values()))
+        kpis['total_communities'] = len(community_map)
+    else:
+        kpis['total_lgas'] = kpis['lgas_reached']
+        kpis['total_wards'] = kpis['wards_reached']
+        kpis['total_communities'] = kpis['communities_reached']
+
     if COL_OFFERED_AZM in ce.columns:
         kpis['offered_azm'] = int((ce[COL_OFFERED_AZM].str.strip().str.lower() == 'yes').sum())
     else:
@@ -126,6 +139,7 @@ def api_kpis():
     total_screened = kpis['eligible_children']
     kpis['coverage_pct'] = round((kpis['offered_azm'] / total_screened * 100) if total_screened > 0 else 0, 1)
     kpis['swallow_rate'] = round((kpis['swallowed_azm'] / kpis['offered_azm'] * 100) if kpis['offered_azm'] > 0 else 0, 1)
+    kpis['last_updated'] = data_loaded_at or 'Not loaded'
 
     return jsonify(kpis)
 
@@ -248,12 +262,14 @@ def api_ra_performance():
 
     # Overall RA totals across all LGAs
     ra_totals = ra_lga.groupby(COL_RA)['count'].sum().reset_index()
-    median_val = ra_totals['count'].median()
+
+    MEET_PER_DAY = 7
+    ABOVE_PER_DAY = 9
 
     def classify(c):
-        if c < median_val * 0.8:
+        if c < MEET_PER_DAY * 5:
             return 'Below Target'
-        elif c > median_val * 1.2:
+        elif c >= ABOVE_PER_DAY * 5:
             return 'Above Target'
         return 'Meet Target'
 
@@ -631,10 +647,14 @@ def api_filters():
     lga_list, ward_list, community_list, ra_list = get_lga_wards_communities(cov)
     # Build hierarchy for cascading dropdowns
     hierarchy = get_lga_hierarchy(cov) if COL_LGA in cov.columns else {}
+    communities = [
+        {'code': c, 'name': community_map.get(c, {}).get('name', c)}
+        for c in community_list
+    ]
     return jsonify({
         'lgas': lga_list,
         'wards': ward_list,
-        'communities': community_list,
+        'communities': communities,
         'ras': ra_list,
         'wards_by_lga': {lga: list(wards.keys()) for lga, wards in hierarchy.items()} if hierarchy else {},
         'communities_by_ward': hierarchy,
@@ -797,12 +817,12 @@ def api_ai_regression():
         counts = [int(r['count']) for _, r in daily_counts.iterrows()]
         # Simple forecast: use average of last 3 days
         avg = round(sum(counts[-3:]) / 3) if len(counts) >= 3 else (counts[-1] if counts else 0)
-        import datetime
-        last_date = daily_counts['date'].iloc[-1] if len(daily_counts) > 0 else datetime.date.today()
+        from datetime import timedelta
+        last_date = daily_counts['date'].iloc[-1] if len(daily_counts) > 0 else datetime.now().date()
         forecast_dates = []
         forecast_counts = []
         for i in range(1, 8):
-            forecast_dates.append(str(last_date + datetime.timedelta(days=i)))
+            forecast_dates.append(str(last_date + timedelta(days=i)))
             forecast_counts.append(avg)
         # Pad actual with None for forecast period
         actual_padded = list(counts) + [None] * 7
@@ -939,6 +959,6 @@ def index():
 
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5050))
+    port = int(os.environ.get('PORT', 5051))
     print(f"Coverage Dashboard running at http://127.0.0.1:{port}")
     app.run(debug=True, host='127.0.0.1', port=port)
