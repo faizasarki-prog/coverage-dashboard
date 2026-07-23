@@ -62,6 +62,11 @@ body { font-family: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif; backgrou
 .shell { display: flex; min-height: 100vh; }
 .sidebar { width: var(--sidebar-w); background: var(--sidebar-bg); display: flex; flex-direction: column; position: fixed; top: 0; left: 0; height: 100vh; z-index: 100; transition: width var(--transition); overflow: hidden; padding: 20px 0 16px; }
 .sidebar.collapsed { width: var(--sidebar-w-collapsed); padding: 16px 0; }
+.sidebar.collapsed .sidebar-brand, .sidebar.collapsed .sidebar-footer { opacity: 0; pointer-events: none; }
+.sidebar-toggle { position: fixed; top: 14px; left: calc(var(--sidebar-w) - 14px); z-index: 200; width: 28px; height: 28px; border-radius: 50%; background: #fff; border: 1px solid var(--border); color: var(--olive-dark); display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,.12); transition: left var(--transition); font-size: 12px; }
+.sidebar-toggle:hover { color: var(--ink); border-color: var(--olive); }
+body.sidebar-collapsed .sidebar-toggle { left: calc(var(--sidebar-w-collapsed) - 14px); }
+body.sidebar-collapsed .sidebar-toggle .bi { transform: rotate(180deg); }
 .sidebar-brand { padding: 0 18px 18px; border-bottom: 1px solid rgba(255,255,255,0.08); margin-bottom: 16px; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
 .brand-icon { display: none; }
 .brand-text { min-width: 0; }
@@ -78,6 +83,15 @@ body { font-family: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif; backgrou
 .nav-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: 0.6; flex-shrink: 0; }
 .nav-item .label { overflow: hidden; }
 .sidebar.collapsed .nav-item .label { display: none; }
+.sidebar-user { display: flex; align-items: center; gap: 10px; padding: 12px 14px; margin: 6px 10px; background: rgba(255,255,255,.06); border-radius: 10px; border: 1px solid rgba(255,255,255,.08); }
+.su-avatar { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(160deg, #22C55E, #0F5132); color: #fff; font-weight: 700; font-size: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; text-transform: uppercase; }
+.su-info { flex: 1; min-width: 0; }
+.su-name { color: #E8F5EE; font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.su-email { color: rgba(255,255,255,.55); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.su-logout { background: rgba(220,38,38,.15); border: 1px solid rgba(220,38,38,.35); color: #FCA5A5; width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; font-size: 14px; transition: all .15s; }
+.su-logout:hover { background: rgba(220,38,38,.35); color: #fff; }
+.sidebar.collapsed .sidebar-user { padding: 8px; gap: 0; justify-content: center; }
+.sidebar.collapsed .su-info, .sidebar.collapsed .su-logout { display: none; }
 .sidebar-footer { padding: 10px 18px; border-top: 1px solid rgba(255,255,255,0.08); font-size: 13px; color: rgba(255,255,255,0.3); white-space: nowrap; }
 .sidebar.collapsed .sidebar-footer { display: none; }
 .sidebar-footer a { color: rgba(255,255,255,0.5); text-decoration: underline; }
@@ -128,9 +142,9 @@ body { font-family: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif; backgrou
 .hero-stat { flex: 1; padding: 0 20px; border-left: 1px solid rgba(255,255,255,0.12); }
 .hero-stat:first-child { border-left: none; padding-left: 0; }
 .hero-stat:last-child { padding-right: 0; }
-.hero-stat .eyebrow { color: #8FA895; font-size: 16px; }
+.hero-stat .eyebrow { color: #8FA895; font-size: 12px; }
 .hero-stat .n { font-family: 'Fraunces', Georgia, serif; font-size: 26px; font-weight: 600; color: #fff; margin-top: 4px; }
-.hero-stat .d { font-size: 16px; color: #9CB5A2; margin-top: 4px; max-width: 200px; line-height: 1.45; }
+.hero-stat .d { font-size: 12px; color: #9CB5A2; margin-top: 4px; max-width: 200px; line-height: 1.45; }
 .kpi-card { background: var(--card-bg); border-radius: var(--radius); padding: 13px 58px 13px 16px; box-shadow: var(--shadow); border: 1px solid var(--border); transition: transform .18s ease, box-shadow .18s ease; position: relative; overflow: hidden; }
 .kpi-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
 .kpi-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--kpi-accent, var(--olive)); border-radius: 12px 0 0 12px; }
@@ -163,7 +177,236 @@ body { font-family: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif; backgrou
 .kpi-card.c-orange  .kpi-value { color: var(--gold-dark); }
 .kpi-label { font-size: 13px; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 2px; font-family: 'IBM Plex Mono', monospace; }
 .kpi-value { font-family: 'Fraunces', Georgia, serif; font-size: 22px; font-weight: 600; color: var(--ink); line-height: 1.15; margin: 0 0 2px; }
-.kpi-sub   { font-size: 13px; color: var(--text-muted); line-height: 1.3; }
+.kpi-sub   { font-size: 11px; color: var(--text-muted); line-height: 1.3; }
+/* ─── Admin Panel Overlay ─────────────────────────────────── */
+.admin-panel-overlay { position: fixed; inset: 0; z-index: 2500; background: #F5F7F5; display: none; overflow: hidden; }
+.admin-panel-overlay.open { display: flex; }
+.admin-sidebar { width: 260px; background: var(--ink); color: #fff; display: flex; flex-direction: column; overflow-y: auto; flex-shrink: 0; }
+.admin-sidebar-brand { padding: 22px 20px 18px; border-bottom: 1px solid rgba(255,255,255,.08); }
+.admin-sidebar-brand h2 { font-family: 'Fraunces', Georgia, serif; font-size: 17px; font-weight: 600; line-height: 1.2; color: #7FC29B; }
+.admin-sidebar-brand h2 br + * , .admin-sidebar-brand h2 { color: #7FC29B; }
+.admin-sidebar-brand p { font-size: 12px; color: #B9CBBE; margin-top: 4px; }
+.admin-nav { padding: 8px 0; flex: 1; }
+.admin-nav-group { padding: 10px 0 4px; }
+.admin-nav-label { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,.4); padding: 8px 20px 6px; }
+.admin-nav-item { display: flex; align-items: center; gap: 10px; font-size: 13px; color: #B9CBBE; padding: 9px 20px; cursor: pointer; transition: all .15s; }
+.admin-nav-item i { font-size: 15px; opacity: .8; width: 18px; }
+.admin-nav-item:hover { background: rgba(255,255,255,.05); color: #fff; }
+.admin-nav-item.active { background: #22432E; color: #fff; font-weight: 500; border-left: 3px solid #7FC29B; padding-left: 17px; }
+.admin-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: #F5F7F5; }
+.admin-topbar { display: flex; align-items: center; justify-content: space-between; padding: 18px 32px; background: #fff; border-bottom: 1px solid var(--border); }
+.admin-topbar h1 { font-family: 'Fraunces', Georgia, serif; font-size: 22px; font-weight: 700; color: var(--ink); margin: 0; }
+.admin-topbar-accent { color: #22c55e; }
+.admin-role-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+.admin-role-badge.role-super-admin { background: #FEF3C7; color: #B45309; }
+.admin-content { flex: 1; overflow-y: auto; padding: 28px 32px; }
+.admin-section-title { display: flex; align-items: center; gap: 8px; font-family: 'Fraunces', Georgia, serif; font-size: 18px; font-weight: 600; color: var(--ink); margin-bottom: 18px; }
+.admin-section-title i { color: var(--text-muted); font-size: 16px; }
+.admin-stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
+@media (max-width: 1100px) { .admin-stat-row { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 600px) { .admin-stat-row { grid-template-columns: 1fr; } }
+.admin-stat-card { background: #fff; border-radius: 12px; padding: 20px 22px; display: flex; align-items: center; gap: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.04); border: 1px solid var(--border); }
+.admin-stat-icon { width: 46px; height: 46px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+.admin-stat-icon.icon-green { background: #DCFCE7; color: #166534; }
+.admin-stat-icon.icon-blue  { background: #DBEAFE; color: #1E40AF; }
+.admin-stat-icon.icon-yellow{ background: #FEF3C7; color: #B45309; }
+.admin-stat-icon.icon-pink  { background: #FCE7F3; color: #BE185D; }
+.admin-stat-body { flex: 1; }
+.admin-stat-value { font-family: 'Fraunces', Georgia, serif; font-size: 28px; font-weight: 700; color: var(--ink); line-height: 1; }
+.admin-stat-label { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); margin-top: 6px; }
+.admin-card { background: #fff; border-radius: 12px; padding: 22px 24px; box-shadow: 0 1px 3px rgba(0,0,0,.04); border: 1px solid var(--border); }
+.admin-card + .admin-card { margin-top: 16px; }
+.admin-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.admin-card-head h3 { font-family: 'Fraunces', Georgia, serif; font-size: 16px; font-weight: 600; color: var(--ink); display: flex; align-items: center; gap: 8px; margin: 0; }
+.admin-card-head h3 i { color: var(--text-muted); font-size: 14px; }
+.admin-count { font-size: 12px; color: var(--text-muted); font-family: 'IBM Plex Mono', monospace; padding: 4px 10px; background: var(--sand); border-radius: 12px; }
+.admin-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: all .15s; font-family: inherit; }
+.admin-btn-primary { background: #22c55e; color: #fff; }
+.admin-btn-primary:hover { background: #16a34a; }
+.admin-btn-outline { background: #fff; color: var(--text-muted); border: 1px solid var(--border); }
+.admin-btn-outline:hover { color: var(--ink); border-color: var(--ink); }
+.admin-table-wrap { overflow-x: auto; }
+.admin-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.admin-table thead th { text-align: left; padding: 12px 14px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); font-weight: 500; border-bottom: 1px solid var(--border); background: transparent; position: static; }
+.admin-table tbody td { padding: 14px; border-bottom: 1px solid var(--border); color: var(--ink); vertical-align: middle; }
+.admin-table tbody tr:last-child td { border-bottom: none; }
+.admin-table tbody tr:hover td { background: #F9FBF9; }
+.admin-table-empty { text-align: center; color: var(--text-muted); padding: 24px !important; }
+.admin-role-pill { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+.admin-role-pill.role-super-admin { background: #FEF3C7; color: #B45309; }
+.admin-role-pill.role-admin       { background: #DBEAFE; color: #1E40AF; }
+.admin-role-pill.role-validator   { background: #DCFCE7; color: #166534; }
+.admin-role-pill.role-public      { background: #E2E8F0; color: #475569; }
+.admin-status-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+.admin-status-pill .dot { width: 6px; height: 6px; border-radius: 50%; }
+.admin-status-pill.is-active { color: #166534; }
+.admin-status-pill.is-active .dot { background: #22c55e; }
+.admin-status-pill.is-inactive { color: #B91C1C; }
+.admin-status-pill.is-inactive .dot { background: #EF4444; }
+.admin-card-placeholder { text-align: center; padding: 60px 24px; color: var(--text-muted); }
+.admin-card-placeholder i { font-size: 42px; color: var(--olive); opacity: .4; margin-bottom: 12px; display: block; }
+.admin-card-placeholder h3 { font-family: 'Fraunces', Georgia, serif; font-size: 17px; color: var(--ink); margin-bottom: 6px; }
+.admin-card-placeholder p { font-size: 13px; max-width: 500px; margin: 0 auto; line-height: 1.5; }
+.admin-role-tiers { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+@media (max-width: 1000px) { .admin-role-tiers { grid-template-columns: repeat(2, 1fr); } }
+.admin-role-tier { display: flex; gap: 12px; padding: 14px 16px; border-radius: 10px; background: #F9FBF9; border: 1px solid var(--border); align-items: flex-start; }
+.admin-role-tier .dot { width: 10px; height: 10px; border-radius: 50%; margin-top: 6px; flex-shrink: 0; }
+.admin-role-tier h4 { font-family: 'Fraunces', Georgia, serif; font-size: 14px; font-weight: 600; color: var(--ink); margin: 0 0 3px; }
+.admin-role-tier p { font-size: 12px; color: var(--text-muted); margin: 0; }
+.admin-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(15,30,20,.5); z-index: 3000; align-items: center; justify-content: center; padding: 24px; }
+.admin-modal-overlay.open { display: flex; }
+.admin-modal { background: #fff; border-radius: 14px; width: 100%; max-width: 460px; padding: 24px 26px; box-shadow: 0 20px 60px rgba(0,0,0,.3); max-height: 90vh; overflow-y: auto; }
+.admin-modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+.admin-modal-head h3 { font-family: 'Fraunces', Georgia, serif; font-size: 18px; color: var(--ink); margin: 0; }
+.admin-modal-close { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 16px; padding: 4px 8px; }
+.admin-modal-close:hover { color: var(--ink); }
+.admin-field { margin-bottom: 14px; }
+.admin-field label { display: block; font-size: 12px; font-weight: 600; color: var(--ink); margin-bottom: 6px; }
+.admin-field input, .admin-field select { width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; font-family: inherit; background: #F9FBF9; }
+.admin-field input:focus, .admin-field select:focus { outline: none; border-color: var(--olive); background: #fff; }
+.admin-chip-set { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; background: #F9FBF9; border: 1px solid var(--border); border-radius: 8px; min-height: 42px; }
+.admin-chip { display: inline-block; padding: 5px 10px; font-size: 12px; background: #fff; border: 1px solid var(--border); border-radius: 14px; cursor: pointer; color: var(--text-muted); transition: all .12s; }
+.admin-chip:hover { border-color: var(--olive); color: var(--ink); }
+.admin-chip.active { background: var(--olive); color: #fff; border-color: var(--olive-dark); }
+.admin-err { display: none; padding: 8px 12px; background: #FEE2E2; color: #B91C1C; border-radius: 6px; font-size: 12px; margin-bottom: 12px; }
+.admin-err:not(:empty) { display: block; }
+.admin-info-box { padding: 10px 12px; background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 8px; font-size: 12px; color: #166534; margin-bottom: 12px; }
+.admin-modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); }
+/* ═════ UX/UI Pro polish — global tokens ═════ */
+:where(button, [role="button"], .btn, .btn-danger-sm, .btn-icon, .btn-icon-sm, .btn-csv, .btn-dl-csv, .btn-clear-filters, .ai-subtab, .modal-tab, .fd-close, .admin-btn, .admin-modal-close, .admin-chip, .geo-btn, .geo-bm-btn, .admin-nav-item, .admin-subtab, .sb-item, .lga-sort-btn, .ra-filter-btn) {
+  cursor: pointer;
+  transition: background-color .18s ease, color .18s ease, border-color .18s ease, box-shadow .18s ease, transform .12s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+:where(button:disabled, [disabled]) { cursor: not-allowed; opacity: 0.6; }
+:where(a) { transition: color .18s ease; }
+
+/* Consistent focus ring — WCAG-friendly */
+:where(a, button, [role="button"], .btn, .btn-icon, .admin-btn, .geo-btn, .geo-bm-btn, .admin-chip, input, select, textarea):focus-visible {
+  outline: 2px solid #22C55E;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+:where(.kpi-card, .chart-card, .panel, .stat, .admin-card, .admin-stat-card):focus-visible {
+  outline: 2px solid var(--olive);
+  outline-offset: 3px;
+}
+
+/* Card lift on hover — subtle, only if pointer:fine */
+@media (hover: hover) and (pointer: fine) {
+  .admin-stat-card { transition: transform .18s ease, box-shadow .18s ease; }
+  .admin-stat-card:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(15,54,40,.08); }
+  .admin-card, .chart-card, .panel { transition: box-shadow .2s ease; }
+  .admin-card:hover, .chart-card:hover, .panel:hover { box-shadow: 0 4px 14px rgba(15,54,40,.06); }
+}
+
+/* Nice thin scrollbars */
+* { scrollbar-width: thin; scrollbar-color: rgba(59,107,76,.35) transparent; }
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: rgba(59,107,76,.28); border-radius: 8px; border: 2px solid transparent; background-clip: content-box; }
+*::-webkit-scrollbar-thumb:hover { background: rgba(59,107,76,.55); background-clip: content-box; border: 2px solid transparent; }
+
+/* Focus ring on form inputs — softer */
+:where(input, select, textarea) { transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease; }
+
+/* Table row hover — consistent */
+:where(table) tbody tr { transition: background-color .12s ease; }
+
+/* Reduce chrome for a11y — respect user preference */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Selection color */
+::selection { background: rgba(34,197,94,.25); color: var(--ink); }
+
+/* Consistent icon rhythm inside buttons */
+.btn i, .admin-btn i, .geo-btn i, .geo-bm-btn i { display: inline-block; vertical-align: -1px; line-height: 1; }
+
+/* Validators — polished cell styles used by the new table */
+.val-flag-chip { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; background: #FEE2E2; color: #B91C1C; margin: 1px 2px; }
+.val-flag-chip.warn { background: #FEF3C7; color: #B45309; }
+.val-row-actions { display: inline-flex; gap: 4px; }
+.val-icon-btn { width: 26px; height: 26px; border-radius: 6px; border: 1px solid var(--border); background: #fff; color: var(--text-muted); display: inline-flex; align-items: center; justify-content: center; font-size: 12px; }
+.val-icon-btn:hover { color: var(--ink); border-color: var(--olive); }
+/* Validators page — contain within viewport, table scrolls internally */
+#page-validators.active { display: flex; flex-direction: column; height: calc(100vh - 100px); }
+#page-validators .val-flags-panel { flex: 1; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+#page-validators .val-table-wrap { flex: 1; overflow: auto; min-height: 220px; }
+#page-validators .val-flags-table { width: 100%; font-size: 12px; border-collapse: separate; border-spacing: 0; }
+#page-validators .val-flags-table thead th { position: sticky; top: 0; z-index: 2; background: #F9FBF9; border-bottom: 2px solid var(--border); white-space: nowrap; padding: 10px 12px; font-size: 10.5px; }
+#page-validators .val-flags-table tbody td { padding: 8px 12px; vertical-align: top; }
+#page-validators .val-flags-table tbody td:nth-child(5), #page-validators .val-flags-table tbody td:nth-child(7) { max-width: 220px; white-space: normal; word-break: break-word; }
+th.qc-sort { cursor: pointer; user-select: none; transition: color .12s ease; }
+th.qc-sort:hover { color: var(--olive-dark); }
+th.qc-sort .qc-arrow { display: inline-block; margin-left: 4px; font-size: 10px; opacity: 0.6; }
+.val-icon-btn.approve:hover { color: #166534; border-color: #16A34A; background: #DCFCE7; }
+.val-icon-btn.reject:hover  { color: #B91C1C; border-color: #DC2626; background: #FEE2E2; }
+.role-super-admin-tier .dot { background: #F59E0B; }
+.role-admin-tier .dot { background: #3B82F6; }
+.role-validator-tier .dot { background: #22c55e; }
+.role-public-tier .dot { background: #94A3B8; }
+
+/* ─── Geospatial Map Panel ─────────────────────────────── */
+.geo-map-panel { padding: 0; overflow: hidden; }
+.geo-shell { display: flex; height: 640px; }
+.geo-left { width: 320px; flex-shrink: 0; border-right: 1px solid var(--border); background: #F5F7F5; display: flex; flex-direction: column; }
+.geo-search { padding: 12px; border-bottom: 1px solid var(--border); background: #fff; }
+.geo-search input { width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; font-family: inherit; background: #F9FBF9; }
+.geo-search input:focus { outline: none; border-color: var(--olive); background: #fff; }
+.geo-breadcrumb { display: flex; align-items: center; gap: 6px; padding: 10px 14px; background: #fff; border-bottom: 1px solid var(--border); font-size: 12px; flex-wrap: wrap; }
+.geo-bc-item { color: var(--olive); cursor: pointer; text-decoration: none; font-weight: 500; }
+.geo-bc-item:hover { text-decoration: underline; }
+.geo-bc-item.active { color: var(--ink); font-weight: 600; cursor: default; text-decoration: none; }
+.geo-bc-sep { color: var(--text-muted); }
+.geo-list-head { display: grid; grid-template-columns: 1fr 90px; padding: 10px 14px 8px; font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.06em; color: var(--text-muted); font-weight: 500; border-bottom: 1px solid var(--border); background: #fff; }
+.geo-lh-pct { text-align: center; }
+.geo-list { flex: 1; overflow-y: auto; }
+.geo-list-empty { padding: 20px; text-align: center; color: var(--text-muted); font-size: 13px; }
+.geo-lga-row { display: grid; grid-template-columns: 1fr 90px; align-items: center; padding: 10px 14px; border-bottom: 1px solid #E5EEDD; cursor: pointer; transition: background .12s; }
+.geo-lga-row:hover { background: #EAF1E4; }
+.geo-lga-row.active { background: #DCFCE7; }
+.geo-lga-name { font-size: 13px; font-weight: 500; color: var(--ink); }
+.geo-lga-row.dim .geo-lga-name { color: #94A3B8; font-weight: 400; }
+.geo-pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 14px; font-size: 11px; font-weight: 600; background: #F1F5F9; color: #475569; margin: 0 auto; }
+.geo-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: #94A3B8; }
+.geo-pill.g-hi   { background: #DCFCE7; color: #166534; } .geo-pill.g-hi   .dot { background: #16A34A; }
+.geo-pill.g-mid  { background: #FEF3C7; color: #B45309; } .geo-pill.g-mid  .dot { background: #F59E0B; }
+.geo-pill.g-lo   { background: #FEE2E2; color: #B91C1C; } .geo-pill.g-lo   .dot { background: #DC2626; }
+.geo-right { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.geo-basemap-bar { display: flex; gap: 8px; align-items: center; padding: 8px 16px; background: #fff; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.geo-bm-label { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.08em; color: var(--text-muted); margin-right: 4px; }
+.geo-bm-btn { display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; border: 1px solid var(--border); border-radius: 6px; background: #fff; color: var(--text-muted); font-size: 11px; font-weight: 500; cursor: pointer; font-family: inherit; transition: all .12s; }
+.geo-bm-btn:hover { color: var(--ink); border-color: var(--olive); }
+.geo-bm-btn.active { background: var(--olive); color: #fff; border-color: var(--olive-dark); }
+.geo-bm-btn i { font-size: 12px; }
+.geo-button-row { display: flex; gap: 10px; padding: 10px 16px; background: #F9FBF9; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.geo-btn { padding: 7px 16px; border: 1px solid #C5D9BC; border-radius: 8px; background: #fff; color: var(--olive-dark); font-size: 12px; font-weight: 600; cursor: pointer; transition: all .12s; font-family: inherit; }
+.geo-btn:hover { background: #E5EEDD; border-color: var(--olive); }
+.geo-btn.active { background: var(--olive); color: #fff; border-color: var(--olive-dark); }
+.geo-btn-outline { background: transparent; border-color: var(--border); color: var(--text-muted); }
+.geo-btn-outline:hover { background: #fff; color: var(--ink); }
+.geo-map-holder { position: relative; flex: 1; overflow: hidden; }
+.geo-map-holder #gpsMap { position: absolute; inset: 0; }
+.geo-map-legend { position: absolute; left: 14px; bottom: 14px; background: rgba(255,255,255,.96); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px 12px; font-size: 11px; color: var(--ink); box-shadow: 0 4px 14px rgba(0,0,0,.08); max-width: 240px; z-index: 500; transition: padding .18s; }
+.gml-head { display: flex; align-items: center; justify-content: space-between; cursor: pointer; margin-bottom: 6px; }
+.gml-chev { color: var(--text-muted); font-size: 12px; margin-left: 8px; }
+.geo-map-legend.collapsed .gml-body { display: none; }
+.geo-map-legend.collapsed { padding-bottom: 10px; }
+.gml-title { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.08em; color: var(--text-muted); }
+.gml-group { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.06em; color: var(--text-muted); margin-top: 10px; margin-bottom: 4px; }
+.gml-group:first-of-type { margin-top: 0; }
+.gml-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; font-size: 11px; }
+.gml-sw { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
+.gml-sw-hollow { background: transparent; border: 1px dashed #94A3B8; }
+.gml-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.geo-perm-label { background: rgba(255,255,255,.85); border: none; border-radius: 3px; padding: 1px 5px; font-size: 10px; font-weight: 600; color: #163628; box-shadow: 0 1px 2px rgba(0,0,0,.15); font-family: inherit; }
 .section { margin-bottom: 24px; }
 .section-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; }
 .section-head h2 { font-family: 'Fraunces', Georgia, serif; font-size: 14px; font-weight: 600; color: var(--ink); }
@@ -178,10 +421,10 @@ body { font-family: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif; backgrou
 .stat .stat-icon.green { background: #E5EEDD; color: var(--olive-dark); }
 .stat .stat-icon.gold { background: #FDF3E0; color: var(--gold-dark); }
 .stat .stat-icon.ink { background: #E0E8E3; color: var(--ink-mid); }
-.stat .eyebrow { margin-bottom: 1px; font-size: 16px; }
+.stat .eyebrow { margin-bottom: 1px; font-size: 12px; }
 .stat .n { font-family: 'Fraunces', Georgia, serif; font-size: 26px; font-weight: 600; color: var(--ink); line-height: 1.2; }
 .stat .n.olive { color: var(--olive-dark); }
-.stat .d { font-size: 16px; color: #1e293b; margin-top: 4px; line-height: 1.45; }
+.stat .d { font-size: 12px; color: #1e293b; margin-top: 4px; line-height: 1.45; }
 .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; min-width: 0; }
 .charts-row.single { grid-template-columns: 1fr; }
 .charts-row.thirds { grid-template-columns: 1fr 1fr 1fr; }
@@ -189,7 +432,7 @@ body { font-family: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif; backgrou
 @media (max-width: 1000px) { .charts-row, .charts-row.thirds { grid-template-columns: 1fr; } }
 .chart-card { background: var(--card-bg); border-radius: var(--radius); box-shadow: var(--shadow); border: 1px solid var(--border); padding: 16px 18px; }
 .chart-card h3 { font-family: 'Fraunces', Georgia, serif; font-size: 18px; font-weight: 600; margin-bottom: 4px; color: var(--ink); }
-.chart-card .sub { font-size: 14px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.45; }
+.chart-card .sub { font-size: 12px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.45; }
 .chart-wrapper { position: relative; }
 .chart-wrapper.h260 { height: 260px; }
 .chart-wrapper.h300 { height: 300px; }
@@ -199,9 +442,12 @@ body { font-family: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif; backgrou
 @media (max-width: 900px) { .panels { grid-template-columns: 1fr; } }
 .panel { background: var(--white); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; margin-bottom: 24px; }
 .panels > .panel { margin-bottom: 0; }
-.panel-head { display: flex; justify-content: space-between; align-items:center; margin-bottom: 12px; }
-.panel-head h3 { font-family: 'Fraunces', Georgia, serif; font-size: 18px; font-weight: 600; color: var(--ink); }
-.panel-head .sub { font-size: 14px; color: var(--text-muted); margin-top: 3px; line-height: 1.45; }
+.panel-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "title controls" "sub sub"; column-gap: 12px; row-gap: 4px; margin-bottom: 14px; align-items: center; }
+.panel-head > div:first-child { display: contents; }
+.panel-head h3 { grid-area: title; font-family: 'Fraunces', Georgia, serif; font-size: 17px; font-weight: 600; color: var(--ink); margin: 0; line-height: 1.25; }
+.panel-head .sub { grid-area: sub; font-size: 12px; color: var(--text-muted); line-height: 1.5; margin-top: 2px; }
+.panel-head > div:last-child, .panel-head > button:last-child { grid-area: controls; display: inline-flex; gap: 6px; align-items: center; justify-self: end; white-space: nowrap; }
+.lga-sort-btn { padding: 4px 10px !important; font-size: 11px !important; line-height: 1 !important; }
 .table-card { background: var(--card-bg); border-radius: var(--radius); box-shadow: var(--shadow); border: 1px solid var(--border); overflow: hidden; margin-bottom: 16px; }
 .table-card-header { padding: 13px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; background: var(--card-bg); }
 .table-card-header h3 { font-family: 'Fraunces', Georgia, serif; font-size: 14px; font-weight: 600; color: var(--ink); }
@@ -446,10 +692,13 @@ body.filter-open .chat-fab, body.filter-open .chat-panel { display: none !import
 
 <div class="shell">
   <!-- ── Sidebar ─────────────────────────────────────────────── -->
+  <button class="sidebar-toggle" onclick="toggleMainSidebar()" title="Collapse / expand sidebar">
+    <i class="bi bi-chevron-double-left" id="sidebarToggleIcon"></i>
+  </button>
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-brand">
       <div class="sidebar-logos">
-        <img src="/static/sokoto_state_logo.jpg" alt="Sokoto State" class="sidebar-logo-img">
+        <img src="/static/sokoto_logo.jpg" alt="Sokoto State" class="sidebar-logo-img">
         <img src="/static/sarmaan_logo.jpg" alt="SARMAAN II" class="sidebar-logo-img">
       </div>
       <div class="brand-text">
@@ -468,13 +717,23 @@ body.filter-open .chat-fab, body.filter-open .chat-panel { display: none !import
         <div class="nav-item" data-page="quality"><span class="nav-dot"></span><span class="label">Quality Checks</span></div>
         <div class="nav-item" data-page="supervision"><span class="nav-dot"></span><span class="label">Supportive Supervision</span></div>
         <div class="nav-item" data-page="geospatial"><span class="nav-dot"></span><span class="label">Geospatial</span></div>
-        <div class="nav-item" data-page="ai"><span class="nav-dot"></span><span class="label">Advanced Analytics</span></div>
       </div>
       <div class="nav-group">
         <div class="nav-section-label">System</div>
         <div class="nav-item" data-page="validators"><span class="nav-dot"></span><span class="label">Validators</span></div>
+        <div class="nav-item" data-page="admin"><span class="nav-dot"></span><span class="label">Admin Panel</span></div>
       </div>
     </nav>
+    <div class="sidebar-user" id="sidebarUser">
+      <div class="su-avatar" id="suAvatar">?</div>
+      <div class="su-info">
+        <div class="su-name" id="suName">Guest</div>
+        <div class="su-email" id="suEmail">Not signed in</div>
+      </div>
+      <button class="su-logout" onclick="signOut()" title="Sign out">
+        <i class="bi bi-box-arrow-right"></i>
+      </button>
+    </div>
     <div class="sidebar-footer">
       <div id="lastUpdated" style="font-size:13px;color:rgba(255,255,255,.45)">Not yet loaded</div>
       <div style="margin-top:8px;font-size:13px;color:rgba(255,255,255,.45);text-align:center">
@@ -829,7 +1088,7 @@ body.filter-open .chat-fab, body.filter-open .chat-panel { display: none !import
             <div class="stat-icon ink"><i class="bi bi-person-badge-fill"></i></div>
             <div class="eyebrow">Research assistants</div>
             <div class="n" id="kpi-ras">-</div>
-            <div class="d">Number of active field research assistants who submitted at least one completed household form</div>
+            <div class="d">Active research assistants with at least one household submission</div>
           </div>
         </div>
 
@@ -1036,31 +1295,28 @@ body.filter-open .chat-fab, body.filter-open .chat-panel { display: none !import
           </div>
         </div>
 
-        <div class="panels">
-          <div class="panel">
-            <div class="panel-head">
-              <div>
-                <h3>Error Summary by LGA</h3>
-                <div class="sub">Breakdown of data quality issues by Local Government Area</div>
-              </div>
-              <button class="btn-dl-csv" onclick="downloadChartCSV('errorsLgaChart','error_summary_by_lga')" title="Download CSV"><i class="bi bi-download"></i> CSV</button>
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <h3>Errors by Research Assistant</h3>
+              <div class="sub">Per-RA breakdown of records submitted and errors detected. Percentage counts each record once even if it triggers multiple checks. Click a column header to sort.</div>
             </div>
-            <div style="height:300px"><canvas id="errorsLgaChart"></canvas></div>
+            <button class="btn-dl-csv" onclick="downloadTableCSV('qcByEnumTable','errors_by_research_assistant')" title="Download CSV"><i class="bi bi-download"></i> CSV</button>
           </div>
-          <div class="panel">
-            <div class="panel-head">
-              <div>
-                <h3>Error Log by Research Assistant</h3>
-                <div class="sub">Per-RA error details and error rates</div>
-              </div>
-              <button class="btn-dl-csv" onclick="downloadTableCSV('errorLogTable','error_log_by_ra')" title="Download CSV"><i class="bi bi-download"></i> CSV</button>
-            </div>
-            <div class="table-wrapper" style="max-height:320px">
-              <table id="errorLogTable">
-                <thead><tr><th>LGA</th><th>Ward</th><th>Community</th><th>RA</th><th>HH Code</th><th>Errors</th></tr></thead>
-                <tbody id="errorLogBody"><tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px">Loading…</td></tr></tbody>
-              </table>
-            </div>
+          <div class="table-wrapper" style="max-height:520px;overflow:auto">
+            <table id="qcByEnumTable">
+              <thead><tr>
+                <th class="qc-sort" data-col="enumerator">Research Assistant <span class="qc-arrow">⇅</span></th>
+                <th class="qc-sort" data-col="total_records"      style="text-align:right">Records <span class="qc-arrow">⇅</span></th>
+                <th class="qc-sort" data-col="duplicate_hh"       style="text-align:right">Duplicate HH <span class="qc-arrow">⇅</span></th>
+                <th class="qc-sort" data-col="settlement_mismatch" style="text-align:right">Settlement Mismatch <span class="qc-arrow">⇅</span></th>
+                <th class="qc-sort" data-col="stacked_gps"        style="text-align:right">Stacked GPS <span class="qc-arrow">⇅</span></th>
+                <th class="qc-sort" data-col="mock_gps"           style="text-align:right">Mock GPS <span class="qc-arrow">⇅</span></th>
+                <th class="qc-sort" data-col="records_with_error" style="text-align:right">Records w/ Error <span class="qc-arrow">⇅</span></th>
+                <th class="qc-sort" data-col="error_pct"          style="text-align:right">Error % <span class="qc-arrow">↓</span></th>
+              </tr></thead>
+              <tbody id="qcByEnumBody"><tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:20px">Loading…</td></tr></tbody>
+            </table>
           </div>
         </div>
       </section>
@@ -1169,7 +1425,7 @@ body.filter-open .chat-fab, body.filter-open .chat-panel { display: none !import
         </div>
 
         <div class="section">
-          <div class="section-head"><h2>GPS coverage</h2><span class="count">5 metrics</span></div>
+          <div class="section-head"><h2>GPS coverage</h2><span class="count">4 metrics</span></div>
           <hr class="section-hr">
           <div class="stat-row">
             <div class="stat">
@@ -1188,11 +1444,6 @@ body.filter-open .chat-fab, body.filter-open .chat-panel { display: none !import
               <div class="d">Points sharing coordinates</div>
             </div>
             <div class="stat">
-              <div class="eyebrow">Stacked %</div>
-              <div class="n" id="gis-stacked-pct">-</div>
-              <div class="d">% of points that are stacked</div>
-            </div>
-            <div class="stat">
               <div class="eyebrow">Mock GPS</div>
               <div class="n" id="gis-mock">-</div>
               <div class="d">Low precision (&lt; 2m)</div>
@@ -1200,69 +1451,92 @@ body.filter-open .chat-fab, body.filter-open .chat-panel { display: none !import
           </div>
         </div>
 
-        <div class="panel">
-          <div class="panel-head">
-            <div>
-              <h3>GPS Distribution by LGA</h3>
-              <div class="sub">Total GPS points collected per LGA</div>
+        <div class="section">
+          <div class="section-head"><h2>Boundary compliance</h2><span class="count" id="geo-boundary-count">— shapes loaded</span></div>
+          <hr class="section-hr">
+          <div class="stat-row">
+            <div class="stat">
+              <div class="stat-icon" style="background:#FEE2E2;color:#B91C1C"><i class="bi bi-geo-alt"></i></div>
+              <div class="eyebrow">Outside LGA polygons</div>
+              <div class="n" id="geo-out-lga">—</div>
+              <div class="d">Points not falling in any LGA shape</div>
             </div>
-            <button class="btn-dl-csv" onclick="downloadChartCSV('gpsChart','gps_distribution_by_lga')" title="Download CSV"><i class="bi bi-download"></i> CSV</button>
+            <div class="stat">
+              <div class="stat-icon" style="background:#FEF3C7;color:#B45309"><i class="bi bi-signpost-split"></i></div>
+              <div class="eyebrow">Outside ward polygons</div>
+              <div class="n" id="geo-out-ward">—</div>
+              <div class="d">Points not falling in any ward shape</div>
+            </div>
+            <div class="stat">
+              <div class="stat-icon" style="background:#FCE7F3;color:#BE185D"><i class="bi bi-houses"></i></div>
+              <div class="eyebrow">Outside settlement polygons</div>
+              <div class="n" id="geo-out-settlement">—</div>
+              <div class="d">Points not falling in any settlement extent</div>
+            </div>
+            <div class="stat">
+              <div class="stat-icon" style="background:#E0E7FF;color:#4338CA"><i class="bi bi-shuffle"></i></div>
+              <div class="eyebrow">Name mismatches</div>
+              <div class="n" id="geo-name-mismatch">—</div>
+              <div class="d">Reported vs matched (LGA/ward/settlement)</div>
+            </div>
           </div>
-          <div style="height:340px"><canvas id="gpsChart"></canvas></div>
+        </div>
+
+        <div class="panel geo-map-panel">
+          <div class="geo-shell">
+            <aside class="geo-left">
+              <div class="geo-search">
+                <input id="geoLgaSearch" placeholder="Search…" oninput="geoFilterLgaList(this.value)" />
+              </div>
+              <div class="geo-breadcrumb" id="geoBreadcrumb">
+                <a onclick="geoNavToLevel('lga')" class="geo-bc-item active">All LGAs</a>
+              </div>
+              <div class="geo-list-head">
+                <span class="geo-lh-name">AREA</span>
+                <span class="geo-lh-pct">GEO ISSUES</span>
+              </div>
+              <div id="geoLgaList" class="geo-list">
+                <div class="geo-list-empty">Loading…</div>
+              </div>
+            </aside>
+
+            <div class="geo-right">
+              <div class="geo-basemap-bar">
+                <span class="geo-bm-label">BASE MAP</span>
+                <button class="geo-bm-btn active" data-basemap="positron" onclick="geoSetBasemap('positron')"><i class="bi bi-brightness-high"></i> Light</button>
+                <button class="geo-bm-btn" data-basemap="osm" onclick="geoSetBasemap('osm')"><i class="bi bi-map"></i> Street</button>
+                <button class="geo-bm-btn" data-basemap="satellite" onclick="geoSetBasemap('satellite')"><i class="bi bi-globe-americas"></i> Satellite</button>
+                <button class="geo-bm-btn" data-basemap="terrain" onclick="geoSetBasemap('terrain')"><i class="bi bi-triangle-half"></i> Terrain</button>
+              </div>
+              <div class="geo-button-row">
+                <button class="geo-btn" data-filter="out_lga"        onclick="geoSetFilter('out_lga')"><i class="bi bi-crosshair" style="color:#DC2626"></i> Outside LGA</button>
+                <button class="geo-btn" data-filter="out_ward"       onclick="geoSetFilter('out_ward')"><i class="bi bi-crosshair" style="color:#DC2626"></i> Outside Ward</button>
+                <button class="geo-btn" data-filter="out_settlement" onclick="geoSetFilter('out_settlement')"><i class="bi bi-crosshair" style="color:#DC2626"></i> Outside Settlement</button>
+                <button class="geo-btn geo-btn-outline" id="geoResetBtn" style="display:none;margin-left:auto" onclick="geoResetFocus()"><i class="bi bi-arrow-counterclockwise"></i> Show All LGAs</button>
+              </div>
+              <div class="geo-map-holder">
+                <div id="gpsMap"></div>
+                <div class="geo-map-legend" id="geoMapLegend">
+                  <div class="gml-head" onclick="geoToggleLegend()">
+                    <span class="gml-title">MAP LEGEND</span>
+                    <i class="bi bi-chevron-down gml-chev" id="geoLegendChev"></i>
+                  </div>
+                  <div class="gml-body" id="geoLegendBody">
+                    <div class="gml-group">SETTLEMENTS</div>
+                    <div class="gml-row"><span class="gml-sw" style="background:#22C55E"></span><span>Visited · ≥ 1 GPS point inside</span></div>
+                    <div class="gml-row"><span class="gml-sw" style="background:#EF4444"></span><span>Not visited · no GPS point yet</span></div>
+                    <div class="gml-group">GPS POINTS</div>
+                    <div class="gml-row"><span class="gml-dot" style="background:#16A34A"></span><span>Inside the assigned LGA</span></div>
+                    <div class="gml-row"><span class="gml-dot" style="background:#DC2626"></span><span>Outside · flagged for review</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
       <!-- ═══ ADVANCED ANALYTICS ═══ -->
-      <section class="page-section" id="page-ai">
-        <div class="page-header">
-          <h2><i class="bi bi-robot"></i> AI &amp; Advanced Analytics</h2>
-          <p>Non-obvious insights, trend forecasting and anomaly detection</p>
-        </div>
-
-        <div class="ai-subtabs">
-          <button class="ai-subtab active" data-aitab="insights"><i class="bi bi-lightbulb"></i> Smart Insights</button>
-          <button class="ai-subtab" data-aitab="regression"><i class="bi bi-graph-up-arrow"></i> Trend &amp; Forecast</button>
-          <button class="ai-subtab" data-aitab="anomaly"><i class="bi bi-exclamation-triangle"></i> Anomaly Detection</button>
-        </div>
-
-        <div class="ai-tab-pane active" id="ai-tab-insights">
-          <div id="aiInsightsGrid" class="ai-insights-grid">
-            <div style="grid-column:1/-1;text-align:center;padding:32px;color:var(--text-muted)">
-              Navigate here after loading data to see AI insights.
-            </div>
-          </div>
-        </div>
-
-        <div class="ai-tab-pane" id="ai-tab-regression">
-          <div class="ai-reg-kpis" id="regKpis"></div>
-          <div class="panel" style="margin-top:16px">
-            <div class="panel-head">
-              <div>
-                <h3>Daily Submissions — Trend &amp; 7-Day Forecast</h3>
-                <div class="sub">Actual vs predicted daily household submissions</div>
-              </div>
-              <button class="btn-dl-csv" onclick="downloadChartCSV('regressionChart','daily_submissions_forecast')" title="Download CSV"><i class="bi bi-download"></i> CSV</button>
-            </div>
-            <div style="height:300px"><canvas id="regressionChart"></canvas></div>
-          </div>
-          <div class="panel" style="margin-top:16px">
-            <div class="panel-head">
-              <div>
-                <h3>LGA Collection Trends</h3>
-                <div class="sub">Daily submission trends per LGA</div>
-              </div>
-              <button class="btn-dl-csv" onclick="downloadDOMCSV('lgaTrendsBody','lga_collection_trends')" title="Download CSV"><i class="bi bi-download"></i> CSV</button>
-            </div>
-            <div id="lgaTrendsBody" style="padding:12px"></div>
-          </div>
-        </div>
-
-        <div class="ai-tab-pane" id="ai-tab-anomaly">
-          <div class="ai-anomaly-grid" id="anomalyGrid">
-            <div style="text-align:center;padding:32px;color:var(--text-muted)">Loading anomaly data…</div>
-          </div>
-        </div>
-      </section>
 
       <!-- ═══ VALIDATORS ═══ -->
       <section class="page-section" id="page-validators">
@@ -1330,15 +1604,37 @@ body.filter-open .chat-fab, body.filter-open .chat-panel { display: none !import
           <div id="valTaskList" style="padding:8px 12px"><p style="text-align:center;color:var(--text-muted);padding:16px">Loading…</p></div>
         </div>
 
-        <!-- Flags table -->
-        <div class="panel">
+        <!-- Flagged Records — validator review table -->
+        <div class="panel val-flags-panel">
           <div class="panel-head">
-            <h3>Flagged Records</h3>
-            <span id="valFlagCount" style="font-size:13px;color:var(--text-muted);font-weight:600"></span>
-            <button class="btn-dl-csv" onclick="downloadTableCSV('valFlagsTable','flagged_records')" title="Download CSV" style="margin-left:auto"><i class="bi bi-download"></i> CSV</button>
+            <div>
+              <h3>Flagged Records for Review</h3>
+              <div class="sub">Household + child join with the QC checks applied. Click Edit to review a record, Approve to accept, or Reject to send back to the RA.</div>
+            </div>
+            <div>
+              <span id="valFlagCount" class="admin-count">0 flagged</span>
+              <button class="btn-dl-csv" onclick="downloadTableCSV('valFlagsTable','flagged_records')" title="Download CSV"><i class="bi bi-download"></i> CSV</button>
+            </div>
           </div>
-          <div class="table-wrapper" id="valFlagsWrap" style="max-height:360px;overflow-y:auto">
-            <p style="text-align:center;color:var(--text-muted);padding:20px">Loading…</p>
+          <div class="table-wrapper val-table-wrap" id="valFlagsWrap">
+            <table id="valFlagsTable" class="admin-table val-flags-table">
+              <thead><tr>
+                <th>Unique Code</th>
+                <th>LGA</th>
+                <th>Ward</th>
+                <th>Community</th>
+                <th title="Q11. Name of the Head of the household?">Head of HH (Q11)</th>
+                <th title="Q12. Gender of the Head of the household?">Gender (Q12)</th>
+                <th title="Q88. Child name and age">Child (Q88)</th>
+                <th title="Q89. Sex of child">Sex (Q89)</th>
+                <th>Education</th>
+                <th>Occupation</th>
+                <th>Settlement</th>
+                <th>Flags</th>
+                <th>Actions</th>
+              </tr></thead>
+              <tbody id="valFlagsBody"><tr><td colspan="13" style="text-align:center;color:var(--text-muted);padding:20px">Loading…</td></tr></tbody>
+            </table>
           </div>
         </div>
       </section>
@@ -1885,10 +2181,11 @@ function applyDrawerFilters() {
 
 document.querySelectorAll('.nav-item').forEach(item => {
   item.addEventListener('click', () => {
+    const page = item.dataset.page;
+    if (page === 'admin') { showAdminPanel(); return; }
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     document.querySelectorAll('.page-section').forEach(s => s.classList.remove('active'));
     item.classList.add('active');
-    const page = item.dataset.page;
     const section = document.getElementById(`page-${page}`);
     if (section) section.classList.add('active');
     document.querySelector('.page-content')?.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1901,6 +2198,223 @@ document.querySelectorAll('.nav-item').forEach(item => {
     if (page === 'validators') loadValidators();
   });
 });
+
+// ─── Admin Panel ────────────────────────────────────────────
+async function adminApi(path, opts = {}) {
+  const headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
+  const res = await fetch(path, Object.assign({}, opts, { headers }));
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.detail || ('HTTP ' + res.status));
+  }
+  return res.json();
+}
+
+function adminShowSubtab(name) {
+  document.querySelectorAll('.admin-nav-item[data-subtab]').forEach(t => t.classList.toggle('active', t.dataset.subtab === name));
+  document.querySelectorAll('.admin-subsection').forEach(s => {
+    const on = s.id === 'admin-sub-' + name;
+    s.classList.toggle('active', on);
+    s.style.display = on ? 'block' : 'none';
+  });
+  if (name === 'overview') adminLoadOverview();
+  if (name === 'users') adminLoadUsers();
+  if (name === 'projects') adminLoadProjects();
+  if (name === 'audit') adminLoadAudit();
+}
+
+function _esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function _fmtDate(iso) {
+  if (!iso) return '—';
+  try { return new Date(iso).toLocaleString(); } catch (e) { return iso; }
+}
+function _roleBadge(r) {
+  const cls = r ? ('role-' + String(r).replace('_', '-')) : 'role-public';
+  const label = r ? String(r).replace('_', ' ') : 'none';
+  return `<span class="admin-role-pill ${cls}">${_esc(label)}</span>`;
+}
+function _statusPill(active) {
+  return `<span class="admin-status-pill ${active ? 'is-active' : 'is-inactive'}"><span class="dot"></span>${active ? 'Active' : 'Inactive'}</span>`;
+}
+
+async function adminLoadOverview() {
+  try {
+    const [users, projects, audit] = await Promise.all([
+      adminApi('/api/users'),
+      adminApi('/api/projects'),
+      adminApi('/api/audit-log?limit=100'),
+    ]);
+    document.getElementById('admStatUsers').textContent = users.length;
+    document.getElementById('admStatProjects').textContent = projects.length;
+    document.getElementById('admStatValidators').textContent = users.filter(u => u.role === 'validator').length;
+    document.getElementById('admStatAudit').textContent = audit.length;
+    const body = document.getElementById('admRecentUsersBody');
+    if (!users.length) {
+      body.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:16px">No users yet.</td></tr>';
+    } else {
+      body.innerHTML = users.slice(0, 6).map(u =>
+        `<tr><td>${_esc(u.name)}</td><td>${_esc(u.email)}</td><td>${_roleBadge(u.role)}</td><td>${_statusPill(u.is_active)}</td></tr>`
+      ).join('');
+    }
+  } catch (e) {
+    document.getElementById('admRecentUsersBody').innerHTML =
+      `<tr><td colspan="4" style="text-align:center;color:var(--red);padding:16px">${_esc(e.message)}</td></tr>`;
+  }
+}
+
+let _admLgaChosen = new Set();
+let _admLgaOptions = [];
+
+async function adminLoadUsers() {
+  const body = document.getElementById('admUsersBody');
+  body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:16px">Loading…</td></tr>';
+  try {
+    const users = await adminApi('/api/users');
+    document.getElementById('admUsersCount').textContent = users.length;
+    if (!users.length) {
+      body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:16px">No users yet.</td></tr>';
+      return;
+    }
+    body.innerHTML = users.map(u => {
+      const lgaLabel = (u.lgas || []).map(l => _esc(l)).join(', ') || '—';
+      return `<tr>
+        <td>${_esc(u.name)}</td>
+        <td>${_esc(u.email)}</td>
+        <td>${_roleBadge(u.role)}</td>
+        <td style="font-size:11px;color:var(--text-muted)">${lgaLabel}</td>
+        <td>${_statusPill(u.is_active)}</td>
+        <td>${_fmtDate(u.created_at)}</td>
+        <td><button class="admin-btn admin-btn-outline" style="padding:4px 8px;font-size:11px" onclick="admDeleteUser(${u.id}, '${_esc(u.email).replace(/'/g,"\\'")}')"><i class="bi bi-trash"></i></button></td>
+      </tr>`;
+    }).join('');
+  } catch (e) {
+    body.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--red);padding:16px">${_esc(e.message)}</td></tr>`;
+  }
+}
+
+async function admOpenCreateUser() {
+  document.getElementById('admCreateUserModal').classList.add('open');
+  document.getElementById('admNewName').value = '';
+  document.getElementById('admNewEmail').value = '';
+  document.getElementById('admNewRole').value = '';
+  document.getElementById('admNewPassword').value = '';
+  document.getElementById('admCreateErr').textContent = '';
+  document.getElementById('admCreateErr').style.display = 'none';
+  document.getElementById('admInviteBox').style.display = 'none';
+  document.getElementById('admInviteBox').innerHTML = '';
+  document.getElementById('admLgaRow').style.display = 'none';
+  _admLgaChosen = new Set();
+  if (!_admLgaOptions.length) {
+    try {
+      const all = await api('/api/geo/lga-stats');
+      _admLgaOptions = all.filter(r => r.is_planned).map(r => r.name);
+    } catch (e) { _admLgaOptions = []; }
+  }
+  _admRenderChips();
+}
+function admCloseCreateUser() {
+  document.getElementById('admCreateUserModal').classList.remove('open');
+}
+function admToggleLgaRow() {
+  const role = document.getElementById('admNewRole').value;
+  document.getElementById('admLgaRow').style.display = role === 'validator' ? 'block' : 'none';
+}
+function _admRenderChips() {
+  const box = document.getElementById('admLgaChips');
+  if (!_admLgaOptions.length) { box.innerHTML = '<span style="color:var(--text-muted);font-size:12px">No LGAs available.</span>'; return; }
+  box.innerHTML = _admLgaOptions.map(name => {
+    const on = _admLgaChosen.has(name);
+    return `<span class="admin-chip ${on ? 'active' : ''}" onclick="admToggleChip('${name.replace(/'/g,"\\'")}')">${_esc(name)}</span>`;
+  }).join('');
+}
+function admToggleChip(name) {
+  if (_admLgaChosen.has(name)) _admLgaChosen.delete(name);
+  else _admLgaChosen.add(name);
+  _admRenderChips();
+}
+async function admSubmitCreateUser(ev) {
+  ev.preventDefault();
+  const err = document.getElementById('admCreateErr');
+  const inviteBox = document.getElementById('admInviteBox');
+  err.style.display = 'none'; inviteBox.style.display = 'none';
+  const body = {
+    name: document.getElementById('admNewName').value.trim(),
+    email: document.getElementById('admNewEmail').value.trim(),
+    role: document.getElementById('admNewRole').value,
+    password: document.getElementById('admNewPassword').value || null,
+    lgas: document.getElementById('admNewRole').value === 'validator' ? [..._admLgaChosen] : [],
+  };
+  try {
+    const res = await fetch('/api/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const data = await res.json();
+    if (!res.ok) { err.textContent = data.detail || 'Create failed.'; err.style.display = 'block'; return false; }
+    if (data.invite_url) {
+      const full = window.location.origin + data.invite_url;
+      inviteBox.innerHTML = `<strong>Invite link:</strong> <input readonly value="${_esc(full)}" onclick="this.select()" style="width:100%;margin-top:6px;padding:6px 8px;font-size:11px;border:1px solid var(--border);border-radius:6px;background:#fff" />`;
+      inviteBox.style.display = 'block';
+    } else {
+      admCloseCreateUser();
+    }
+    adminLoadUsers();
+  } catch (e) { err.textContent = e.message || 'Error.'; err.style.display = 'block'; }
+  return false;
+}
+async function admDeleteUser(id, email) {
+  if (!confirm(`Delete user ${email}?`)) return;
+  try {
+    const res = await fetch('/api/users/' + id, { method: 'DELETE' });
+    if (!res.ok && res.status !== 204) {
+      const d = await res.json().catch(() => ({}));
+      alert(d.detail || 'Delete failed');
+      return;
+    }
+    adminLoadUsers();
+  } catch (e) { alert(e.message); }
+}
+
+async function adminLoadProjects() {
+  const body = document.getElementById('admProjectsBody');
+  body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:16px">Loading…</td></tr>';
+  try {
+    const projects = await adminApi('/api/projects');
+    if (!projects.length) {
+      body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:16px">No projects configured yet.</td></tr>';
+      return;
+    }
+    body.innerHTML = projects.map(p => `<tr>
+      <td>${p.id}</td>
+      <td>${_esc(p.name)}</td>
+      <td>${_esc(p.description || '—')}</td>
+      <td>${_statusPill(p.is_active)}</td>
+      <td>${_fmtDate(p.created_at)}</td>
+    </tr>`).join('');
+  } catch (e) {
+    body.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--red);padding:16px">${_esc(e.message)}</td></tr>`;
+  }
+}
+
+async function adminLoadAudit() {
+  const body = document.getElementById('admAuditBody');
+  body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:16px">Loading…</td></tr>';
+  try {
+    const rows = await adminApi('/api/audit-log?limit=200');
+    if (!rows.length) {
+      body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:16px">No audit events yet.</td></tr>';
+      return;
+    }
+    body.innerHTML = rows.map(r => `<tr>
+      <td>${_fmtDate(r.created_at)}</td>
+      <td>${_esc(r.user || '—')}</td>
+      <td>${_esc(r.action)}</td>
+      <td>${_esc(r.details || '—')}</td>
+      <td>${_esc(r.ip || '—')}</td>
+    </tr>`).join('');
+  } catch (e) {
+    body.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--red);padding:16px">${_esc(e.message)}</td></tr>`;
+  }
+}
 
 let completionData = [];
 
@@ -1993,17 +2507,72 @@ async function loadQuality() {
   showLoading('Loading quality data…');
   try {
     const qs = buildQS();
-    const [dq, errorsByLga, errorLog] = await Promise.all([
+    const [dq, byEnum] = await Promise.all([
       api(`/api/dq-metrics${qs}`),
-      api(`/api/errors-by-lga${qs}`),
-      api(`/api/error-log${qs}`),
+      api(`/api/quality/by-enumerator${qs}`),
     ]);
     renderDqCards(dq);
-    renderErrorsByLgaChart(errorsByLga);
-    renderErrorLog(errorLog);
+    renderQualityByEnumerator(byEnum);
   } catch (e) { toast('Quality error: ' + e.message, true); }
   finally { hideLoading(); }
 }
+
+let _qcRaData = [];
+let _qcSortCol = 'error_pct';
+let _qcSortDir = 'desc';
+
+function renderQualityByEnumerator(rows) {
+  _qcRaData = rows || [];
+  _qcDrawTable();
+}
+
+function _qcDrawTable() {
+  const body = document.getElementById('qcByEnumBody');
+  if (!body) return;
+  if (!_qcRaData.length) {
+    body.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:20px">No RA data</td></tr>';
+    return;
+  }
+  const sorted = _qcRaData.slice().sort((a, b) => {
+    const va = a[_qcSortCol] ?? 0, vb = b[_qcSortCol] ?? 0;
+    if (typeof va === 'string' || typeof vb === 'string') {
+      return _qcSortDir === 'asc'
+        ? String(va).localeCompare(String(vb))
+        : String(vb).localeCompare(String(va));
+    }
+    return _qcSortDir === 'asc' ? va - vb : vb - va;
+  });
+  document.querySelectorAll('#qcByEnumTable th.qc-sort .qc-arrow').forEach(el => {
+    const th = el.closest('.qc-sort');
+    if (th && th.dataset.col === _qcSortCol) el.textContent = _qcSortDir === 'asc' ? '↑' : '↓';
+    else el.textContent = '⇅';
+  });
+  const cell = (v, extra) => `<td style="text-align:right${extra ? ';' + extra : ''}">${fmt(v)}</td>`;
+  body.innerHTML = sorted.map(r => {
+    const pct = r.error_pct;
+    const pctColor = pct >= 20 ? '#B91C1C' : pct >= 10 ? '#B45309' : '#166534';
+    const pctBg    = pct >= 20 ? '#FEE2E2' : pct >= 10 ? '#FEF3C7' : '#DCFCE7';
+    return `<tr>
+      <td><strong>${_esc(r.enumerator)}</strong></td>
+      ${cell(r.total_records)}
+      ${cell(r.duplicate_hh, r.duplicate_hh > 0 ? 'color:#B91C1C;font-weight:600' : '')}
+      ${cell(r.settlement_mismatch, r.settlement_mismatch > 0 ? 'color:#B91C1C;font-weight:600' : '')}
+      ${cell(r.stacked_gps, r.stacked_gps > 0 ? 'color:#B45309;font-weight:600' : '')}
+      ${cell(r.mock_gps, r.mock_gps > 0 ? 'color:#B45309;font-weight:600' : '')}
+      ${cell(r.records_with_error)}
+      <td style="text-align:right"><span style="background:${pctBg};color:${pctColor};padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700">${pct}%</span></td>
+    </tr>`;
+  }).join('');
+}
+
+document.addEventListener('click', (e) => {
+  const th = e.target.closest('#qcByEnumTable th.qc-sort');
+  if (!th) return;
+  const col = th.dataset.col;
+  if (_qcSortCol === col) _qcSortDir = _qcSortDir === 'asc' ? 'desc' : 'asc';
+  else { _qcSortCol = col; _qcSortDir = col === 'enumerator' ? 'asc' : 'desc'; }
+  _qcDrawTable();
+});
 
 function renderDqCards(dq) {
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = fmt(v); };
@@ -2260,14 +2829,35 @@ async function loadGeospatial() {
   showLoading('Loading geospatial data…');
   try {
     const qs = buildQS();
-    const [gpsData, gpsSummary] = await Promise.all([
-      api(`/api/gps-data${qs}`),
+    const [gpsSummary, geoSummary, points] = await Promise.all([
       api(`/api/gps-summary${qs}`),
+      api('/api/geo/summary').catch(() => null),
+      api('/api/geo/points').catch(() => []),
     ]);
     renderGpsSummary(gpsSummary);
-    renderGpsScatter(gpsData);
+    if (geoSummary) renderGeoBoundary(geoSummary);
+    _geoAllGpsPoints = points || [];
+    await renderGpsScatter(_geoAllGpsPoints);
+    loadGeoLgaList();
   } catch (e) { toast('Geospatial error: ' + e.message, true); }
   finally { hideLoading(); }
+}
+
+function renderGeoBoundary(g) {
+  const set = (id, val, danger) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = fmt(val);
+    el.style.color = danger && val > 0 ? '#B23A3A' : '';
+  };
+  set('geo-out-lga', g.outside_lga, true);
+  set('geo-out-ward', g.outside_ward, true);
+  set('geo-out-settlement', g.outside_settlement, true);
+  const mismatch = (g.lga_mismatch || 0) + (g.ward_mismatch || 0) + (g.settlement_mismatch || 0);
+  set('geo-name-mismatch', mismatch, true);
+  const s = g.shapes_loaded || {};
+  const cnt = document.getElementById('geo-boundary-count');
+  if (cnt) cnt.textContent = `${s.lga || 0} LGA · ${s.ward || 0} ward · ${s.settlement || 0} settlement shapes`;
 }
 
 function renderGpsSummary(s) {
@@ -2280,39 +2870,403 @@ function renderGpsSummary(s) {
   if (mockEl) { mockEl.textContent = fmt(s.mock_gps); mockEl.style.color = s.mock_gps > 0 ? '#B23A3A' : '#3B6B4C'; }
 }
 
-function renderGpsScatter(data) {
-  const canvas = document.getElementById('gpsChart');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  if (gpsChart) gpsChart.destroy();
-  if (!data || !data.length) {
-    canvas.parentElement.innerHTML = '<p style="text-align:center;color:#94a3b8;padding:40px">No GPS data available</p>';
-    return;
+let _gpsMap = null;
+let _gpsMarkerLayer = null;
+let _gpsLgaLayer = null;
+let _gpsWardLayer = null;
+let _gpsSettlementLayer = null;
+let _gpsBaseLayer = null;
+const ZOOM_WARD = 10;
+const ZOOM_SETTLE = 12;
+
+const _BASEMAPS = {
+  positron: () => L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '&copy; OpenStreetMap · CartoDB', maxZoom: 19 }),
+  osm:      () => L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap contributors', maxZoom: 19 }),
+  satellite:() => L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles &copy; Esri', maxZoom: 19 }),
+  terrain:  () => L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { attribution: 'Map data: &copy; OpenStreetMap, SRTM · Style: &copy; OpenTopoMap', maxZoom: 17 }),
+};
+
+function geoSetBasemap(name) {
+  if (!_gpsMap || !_BASEMAPS[name]) return;
+  if (_gpsBaseLayer) _gpsMap.removeLayer(_gpsBaseLayer);
+  _gpsBaseLayer = _BASEMAPS[name]();
+  _gpsBaseLayer.addTo(_gpsMap);
+  document.querySelectorAll('.geo-bm-btn').forEach(b => b.classList.toggle('active', b.dataset.basemap === name));
+}
+function geoToggleLegend() {
+  const legend = document.getElementById('geoMapLegend');
+  const chev = document.getElementById('geoLegendChev');
+  if (!legend) return;
+  const collapsed = legend.classList.toggle('collapsed');
+  if (chev) chev.className = collapsed ? 'bi bi-chevron-up gml-chev' : 'bi bi-chevron-down gml-chev';
+}
+function toggleMainSidebar() {
+  const sb = document.getElementById('sidebar');
+  const mc = document.querySelector('.main-content');
+  if (sb) sb.classList.toggle('collapsed');
+  if (mc) mc.classList.toggle('expanded');
+  document.body.classList.toggle('sidebar-collapsed');
+  setTimeout(() => { if (_gpsMap) _gpsMap.invalidateSize(); }, 250);
+}
+
+function _lgaStyle(feature) {
+  const p = feature.properties || {};
+  if (p.is_planned) {
+    return { color: '#163628', weight: 1.5, opacity: 1, fillColor: '#3B6B4C', fillOpacity: 0.14 };
   }
-  const lgas = [...new Set(data.map(d => d.lga))];
-  const lgaColors = {};
-  lgas.forEach((l, i) => lgaColors[l] = GREEN_PALETTE[i % GREEN_PALETTE.length]);
-  const datasets = lgas.map(lga => ({
-    label: lga,
-    data: data.filter(d => d.lga === lga).map(d => ({ x: d.lng, y: d.lat })),
-    backgroundColor: lgaColors[lga],
-    pointRadius: 3, pointHoverRadius: 6,
-  }));
-  gpsChart = new Chart(ctx, {
-    type: 'scatter',
-    data: { datasets },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: {
-        legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 12, padding: 12 } },
-        tooltip: { callbacks: { label: ctx => { const raw = ctx.raw; return ` ${ctx.dataset.label}: ${Number(raw.y).toFixed(5)}, ${Number(raw.x).toFixed(5)}`; } } },
-      },
-      scales: {
-        x: { title: { display: true, text: 'Longitude', font: { size: 10 } }, grid: { color: 'rgba(0,0,0,.06)' } },
-        y: { title: { display: true, text: 'Latitude', font: { size: 10 } }, grid: { color: 'rgba(0,0,0,.06)' } },
-      },
-    },
+  return { color: '#163628', weight: 1.5, opacity: 1, fillOpacity: 0 };
+}
+function _wardStyle() {
+  return { color: '#B45309', weight: 1.3, fillOpacity: 0, dashArray: '3,3' };
+}
+function _settlementStyle(feature) {
+  const visited = (feature.properties || {}).visited;
+  return visited
+    ? { color: '#14532D', weight: 1.2, fillColor: '#22C55E', fillOpacity: 0.55 }
+    : { color: '#991B1B', weight: 1.2, fillColor: '#EF4444', fillOpacity: 0.4 };
+}
+
+function _applyZoomCascade() {
+  if (!_gpsMap) return;
+  const z = _gpsMap.getZoom();
+  if (_gpsWardLayer) {
+    if (z >= ZOOM_WARD && !_gpsMap.hasLayer(_gpsWardLayer)) _gpsWardLayer.addTo(_gpsMap);
+    else if (z < ZOOM_WARD && _gpsMap.hasLayer(_gpsWardLayer)) _gpsMap.removeLayer(_gpsWardLayer);
+  }
+  if (_gpsSettlementLayer) {
+    if (z >= ZOOM_SETTLE && !_gpsMap.hasLayer(_gpsSettlementLayer)) _gpsSettlementLayer.addTo(_gpsMap);
+    else if (z < ZOOM_SETTLE && _gpsMap.hasLayer(_gpsSettlementLayer)) _gpsMap.removeLayer(_gpsSettlementLayer);
+  }
+  _applyViewportFilter();
+}
+
+function _applyViewportFilter() {
+  if (!_gpsMap) return;
+  const bounds = _gpsMap.getBounds();
+  const setVis = (layer, visible) => {
+    const el = layer.getElement && layer.getElement();
+    if (el) el.style.display = visible ? '' : 'none';
+    else layer.setStyle && layer.setStyle({ opacity: visible ? 1 : 0, fillOpacity: visible ? undefined : 0 });
+  };
+  if (_gpsWardLayer && _gpsMap.hasLayer(_gpsWardLayer)) {
+    _gpsWardLayer.eachLayer(l => {
+      try { setVis(l, bounds.intersects(l.getBounds())); }
+      catch (e) { /* ignore */ }
+    });
+  }
+  if (_gpsSettlementLayer && _gpsMap.hasLayer(_gpsSettlementLayer)) {
+    _gpsSettlementLayer.eachLayer(l => {
+      try { setVis(l, bounds.intersects(l.getBounds())); }
+      catch (e) { /* ignore */ }
+    });
+  }
+}
+
+async function renderGpsScatter(data) {
+  const el = document.getElementById('gpsMap');
+  if (!el) return;
+
+  if (!_gpsMap) {
+    _gpsMap = L.map('gpsMap', { zoomControl: true, scrollWheelZoom: true }).setView([13.06, 5.24], 9);
+    _gpsBaseLayer = _BASEMAPS.positron();
+    _gpsBaseLayer.addTo(_gpsMap);
+
+    try {
+      const [lgaGeo, wardGeo, settleGeo] = await Promise.all([
+        api('/api/geo/boundaries?level=lga'),
+        api('/api/geo/boundaries?level=ward'),
+        api('/api/geo/boundaries?level=settlement'),
+      ]);
+      _gpsLgaLayer = L.geoJSON(lgaGeo, {
+        style: _lgaStyle,
+        onEachFeature: (f, layer) => {
+          const p = f.properties || {};
+          const label = `<strong>${p.lganame || 'LGA'}</strong>` +
+            (p.has_data ? `<br/>Visited ${p.visited_settlements}/${p.total_settlements} settlements (${p.coverage_pct}%)<br/>${p.points} GPS points`
+                        : `<br/><em>No data</em>`);
+          layer.bindTooltip(label, { sticky: true, className: 'geo-boundary-tip' });
+          layer.on('click', () => geoFocusLga(p.lganame));
+          try {
+            const c = layer.getBounds().getCenter();
+            const marker = L.marker(c, {
+              icon: L.divIcon({ className: 'geo-perm-label', html: p.lganame || '', iconSize: [null, null] }),
+              interactive: true,
+            });
+            marker.on('click', () => geoFocusLga(p.lganame));
+            marker.addTo(_gpsMap);
+          } catch (e) { /* ignore */ }
+        },
+      }).addTo(_gpsMap);
+      try {
+        const b = _gpsLgaLayer.getBounds();
+        if (b.isValid()) _gpsMap.fitBounds(b, { padding: [20, 20] });
+      } catch (e) { /* ignore */ }
+      _gpsWardLayer = L.geoJSON(wardGeo, {
+        style: _wardStyle,
+        onEachFeature: (f, layer) => {
+          const p = f.properties || {};
+          layer.bindTooltip(`<strong>${p.wardname}</strong><br/>${p.lganame}<br/>${p.points} GPS points`, { sticky: true, className: 'geo-boundary-tip' });
+        },
+      });
+      _gpsSettlementLayer = L.geoJSON(settleGeo, {
+        style: _settlementStyle,
+        onEachFeature: (f, layer) => {
+          const p = f.properties || {};
+          layer.bindTooltip(`<strong>${p.settlement}</strong><br/>${p.wardname} · ${p.lganame}<br/>${p.visited ? '✅ Visited' : '❌ Not visited'}`, { sticky: true, className: 'geo-boundary-tip' });
+        },
+      });
+      _gpsMap.on('zoomend', _applyZoomCascade);
+      _gpsMap.on('moveend', _applyViewportFilter);
+      _applyZoomCascade();
+    } catch (e) { /* boundaries optional */ }
+  }
+
+  const points = (data || []).filter(d => d && d.lat != null && d.lng != null);
+  _renderGpsMarkers(points);
+
+  setTimeout(() => { _gpsMap.invalidateSize(); }, 100);
+}
+
+function gpsMapZoom(delta) { if (_gpsMap) _gpsMap.setZoom(_gpsMap.getZoom() + delta); }
+function gpsMapFit() {
+  if (!_gpsMap || !_gpsMarkerLayer) return;
+  const pts = [];
+  _gpsMarkerLayer.eachLayer(l => pts.push(l.getLatLng()));
+  if (pts.length) _gpsMap.fitBounds(L.latLngBounds(pts), { padding: [20, 20], maxZoom: 13 });
+}
+
+let _geoLgaStats = [];
+let _geoActiveFilter = null;
+let _geoAllGpsPoints = [];
+
+function _pctPill(v) {
+  // For issues: green when low, red when high (inverted)
+  const g = v >= 20 ? 'g-lo' : v >= 5 ? 'g-mid' : 'g-hi';
+  return `<span class="geo-pill ${g}"><span class="dot"></span>${v}%</span>`;
+}
+function _renderGeoLgaList(rows) {
+  const box = document.getElementById('geoLgaList');
+  if (!box) return;
+  if (!rows.length) { box.innerHTML = '<div class="geo-list-empty">No LGAs match.</div>'; return; }
+  box.innerHTML = rows.map(r => `
+    <div class="geo-lga-row" data-lga="${r.name.replace(/"/g,'&quot;')}" onclick="geoDrillToLga('${r.name.replace(/'/g,"\\'")}')">
+      <div class="geo-lga-name">${r.name}</div>
+      ${_pctPill(r.issues_pct || 0)}
+    </div>`).join('');
+}
+function _renderGeoWardList(rows) {
+  const box = document.getElementById('geoLgaList');
+  if (!box) return;
+  if (!rows.length) { box.innerHTML = '<div class="geo-list-empty">No wards with data.</div>'; return; }
+  box.innerHTML = rows.map(r => `
+    <div class="geo-lga-row" onclick="geoDrillToWard('${r.name.replace(/'/g,"\\'")}')">
+      <div class="geo-lga-name">${r.name}</div>
+      ${_pctPill(r.issues_pct || 0)}
+    </div>`).join('');
+}
+function _renderGeoSettlementList(rows) {
+  const box = document.getElementById('geoLgaList');
+  if (!box) return;
+  if (!rows.length) { box.innerHTML = '<div class="geo-list-empty">No settlements with data.</div>'; return; }
+  box.innerHTML = rows.map(r => `
+    <div class="geo-lga-row" onclick="geoDrillToSettlement('${r.name.replace(/'/g,"\\'")}')">
+      <div class="geo-lga-name">${r.name}</div>
+      ${_pctPill(r.issues_pct || 0)}
+    </div>`).join('');
+}
+function _renderBreadcrumb() {
+  const bc = document.getElementById('geoBreadcrumb');
+  if (!bc) return;
+  const parts = [`<a onclick="geoNavToLevel('lga')" class="geo-bc-item ${_geoNavLevel === 'lga' ? 'active' : ''}">All LGAs</a>`];
+  if (_geoNavLga) {
+    parts.push(`<span class="geo-bc-sep">›</span>`);
+    parts.push(`<a onclick="geoNavToLevel('ward', '${_geoNavLga.replace(/'/g,"\\'")}')" class="geo-bc-item ${_geoNavLevel === 'ward' ? 'active' : ''}">${_esc(_geoNavLga)}</a>`);
+  }
+  if (_geoNavWard) {
+    parts.push(`<span class="geo-bc-sep">›</span>`);
+    parts.push(`<a class="geo-bc-item active">${_esc(_geoNavWard)}</a>`);
+  }
+  bc.innerHTML = parts.join(' ');
+}
+
+let _geoNavLevel = 'lga';
+let _geoNavLga = null;
+let _geoNavWard = null;
+let _geoFocusedWard = null;
+
+async function loadGeoLgaList() {
+  try {
+    const all = await api('/api/geo/lga-stats');
+    _geoLgaStats = all.filter(r => r.is_planned);
+    _geoNavLevel = 'lga'; _geoNavLga = null; _geoNavWard = null;
+    _renderGeoLgaList(_geoLgaStats);
+    _renderBreadcrumb();
+  } catch (e) {
+    const box = document.getElementById('geoLgaList');
+    if (box) box.innerHTML = `<div class="geo-list-empty" style="color:var(--red)">${e.message}</div>`;
+  }
+}
+function geoFilterLgaList(q) {
+  const s = (q || '').trim().toLowerCase();
+  if (_geoNavLevel !== 'lga') return;
+  const rows = !s ? _geoLgaStats : _geoLgaStats.filter(r => r.name.toLowerCase().includes(s));
+  _renderGeoLgaList(rows);
+}
+
+async function geoDrillToLga(name) {
+  _geoNavLevel = 'ward'; _geoNavLga = name; _geoNavWard = null;
+  _renderBreadcrumb();
+  geoFocusLga(name);
+  try {
+    const wards = await api('/api/geo/ward-stats?lga=' + encodeURIComponent(name));
+    _renderGeoWardList(wards);
+  } catch (e) {
+    document.getElementById('geoLgaList').innerHTML = `<div class="geo-list-empty" style="color:var(--red)">${e.message}</div>`;
+  }
+}
+
+async function geoDrillToWard(wardName) {
+  _geoNavLevel = 'settlement'; _geoNavWard = wardName;
+  _renderBreadcrumb();
+  _geoFocusedWard = wardName;
+  _applyFocusFilter();
+  if (_gpsWardLayer) {
+    let target = null;
+    _gpsWardLayer.eachLayer(l => {
+      const p = l.feature.properties || {};
+      if (_matchLga(p.lganame, _geoNavLga) && String(p.wardname || '').toLowerCase() === wardName.toLowerCase()) target = l;
+    });
+    if (target && _gpsMap) _gpsMap.fitBounds(target.getBounds(), { padding: [40, 40] });
+  }
+  try {
+    const settlements = await api(`/api/geo/settlement-stats?lga=${encodeURIComponent(_geoNavLga)}&ward=${encodeURIComponent(wardName)}`);
+    _renderGeoSettlementList(settlements);
+  } catch (e) {
+    document.getElementById('geoLgaList').innerHTML = `<div class="geo-list-empty" style="color:var(--red)">${e.message}</div>`;
+  }
+}
+
+function geoDrillToSettlement(sName) {
+  if (!_gpsSettlementLayer) return;
+  let target = null;
+  _gpsSettlementLayer.eachLayer(l => {
+    const p = l.feature.properties || {};
+    if (_matchLga(p.lganame, _geoNavLga) && String(p.wardname || '').toLowerCase() === (_geoNavWard || '').toLowerCase() && String(p.settlement || '').toLowerCase() === sName.toLowerCase()) target = l;
   });
+  if (target && _gpsMap) _gpsMap.fitBounds(target.getBounds(), { padding: [60, 60], maxZoom: 16 });
+}
+
+async function geoNavToLevel(level, lga) {
+  if (level === 'lga') { _geoFocusedWard = null; loadGeoLgaList(); geoResetFocus(); return; }
+  if (level === 'ward' && lga) { _geoFocusedWard = null; await geoDrillToLga(lga); return; }
+}
+let _gpsFocusedLga = null;
+
+function _matchLga(featLga, target) {
+  return String(featLga || '').trim().toLowerCase() === String(target || '').trim().toLowerCase();
+}
+
+function _setLayerVisible(l, visible) {
+  const el = l.getElement && l.getElement();
+  if (el) el.style.display = visible ? '' : 'none';
+  else if (l.setStyle) l.setStyle({ opacity: visible ? 1 : 0, fillOpacity: visible ? undefined : 0 });
+}
+
+function _applyFocusFilter() {
+  const focus = _gpsFocusedLga;
+  const wardFocus = _geoFocusedWard;
+  if (_gpsLgaLayer) {
+    _gpsLgaLayer.eachLayer(l => _setLayerVisible(l, !focus || _matchLga(l.feature.properties.lganame, focus)));
+  }
+  document.querySelectorAll('.geo-perm-label').forEach(el => {
+    const marker = el.closest('.leaflet-marker-icon') || el;
+    const name = (el.textContent || '').trim();
+    marker.style.display = (focus && !_matchLga(name, focus)) ? 'none' : '';
+  });
+  if (_gpsWardLayer) {
+    _gpsWardLayer.eachLayer(l => {
+      const p = l.feature.properties || {};
+      const inLga = !focus || _matchLga(p.lganame, focus);
+      const inWard = !wardFocus || String(p.wardname || '').toLowerCase() === wardFocus.toLowerCase();
+      _setLayerVisible(l, inLga && inWard);
+    });
+  }
+  if (_gpsSettlementLayer) {
+    _gpsSettlementLayer.eachLayer(l => {
+      const p = l.feature.properties || {};
+      const inLga = !focus || _matchLga(p.lganame, focus);
+      const inWard = !wardFocus || String(p.wardname || '').toLowerCase() === wardFocus.toLowerCase();
+      _setLayerVisible(l, inLga && inWard);
+    });
+  }
+  const points = (_geoAllGpsPoints || []).filter(p => {
+    if (focus && !_matchLga(p.matched_lga || p.reported_lga, focus)) return false;
+    if (wardFocus && String(p.reported_ward || p.matched_ward || '').toLowerCase() !== wardFocus.toLowerCase()) return false;
+    return true;
+  });
+  _renderGpsMarkers(points);
+  const reset = document.getElementById('geoResetBtn');
+  if (reset) reset.style.display = (focus || wardFocus) ? 'inline-flex' : 'none';
+}
+
+function geoFocusLga(name) {
+  if (!_gpsLgaLayer) return;
+  _gpsFocusedLga = name;
+  document.querySelectorAll('.geo-lga-row').forEach(r => r.classList.toggle('active', r.dataset.lga === name));
+  let target = null;
+  _gpsLgaLayer.eachLayer(l => { if (_matchLga(l.feature.properties.lganame, name)) target = l; });
+  if (target) _gpsMap.fitBounds(target.getBounds(), { padding: [30, 30] });
+  _applyFocusFilter();
+}
+
+function geoResetFocus() {
+  _gpsFocusedLga = null;
+  document.querySelectorAll('.geo-lga-row').forEach(r => r.classList.remove('active'));
+  _applyFocusFilter();
+  try {
+    if (_gpsLgaLayer) {
+      const b = _gpsLgaLayer.getBounds();
+      if (b.isValid()) _gpsMap.fitBounds(b, { padding: [20, 20] });
+    }
+  } catch (e) { /* ignore */ }
+}
+function _renderGpsMarkers(points) {
+  if (_gpsMarkerLayer) _gpsMap.removeLayer(_gpsMarkerLayer);
+  _gpsMarkerLayer = L.layerGroup();
+  points.forEach(pt => {
+    const good = pt.in_lga && pt.in_ward && pt.in_settlement;
+    const opts = good
+      ? { radius: 3.5, color: '#14532D', weight: 0.8, fillColor: '#16A34A', fillOpacity: 0.9 }
+      : { radius: 4.5, color: '#7F1D1D', weight: 1.2, fillColor: '#DC2626', fillOpacity: 0.55, dashArray: '2,2' };
+    const html = `
+      <div style="font-family:'IBM Plex Sans',sans-serif;font-size:12px;line-height:1.55;min-width:200px">
+        <div style="font-weight:700;color:${good ? '#166534' : '#B91C1C'};margin-bottom:4px">
+          ${good ? '✓ Inside boundaries' : '⚠ Outside boundaries'}
+        </div>
+        <div><strong>LGA:</strong> ${pt.matched_lga || pt.reported_lga || '—'}</div>
+        <div><strong>Ward:</strong> ${pt.matched_ward || pt.reported_ward || '—'}</div>
+        <div><strong>Settlement:</strong> ${pt.matched_settlement || pt.reported_community || '—'}</div>
+        <div><strong>Enumerator:</strong> ${pt.ra || '—'}</div>
+        <div style="color:#666;margin-top:4px;font-size:11px">${Number(pt.lat).toFixed(5)}, ${Number(pt.lng).toFixed(5)}</div>
+      </div>`;
+    L.circleMarker([pt.lat, pt.lng], opts).bindPopup(html).addTo(_gpsMarkerLayer);
+  });
+  _gpsMarkerLayer.addTo(_gpsMap);
+}
+async function geoSetFilter(kind) {
+  document.querySelectorAll('.geo-btn').forEach(b => b.classList.toggle('active', b.dataset.filter === kind));
+  _geoActiveFilter = kind;
+  let subset = _geoAllGpsPoints.slice();
+  if (kind === 'out_lga' || kind === 'out_ward') {
+    try {
+      const flagged = await api('/api/geo/flagged?limit=5000');
+      const keyFn = kind === 'out_lga' ? f => !f.in_lga : f => !f.in_ward;
+      const outset = flagged.filter(keyFn).map(f => ({ lat: f.lat, lng: f.lng, lga: f.reported_lga, ward: f.reported_ward, community: f.reported_community, _flag_outside_lga: true }));
+      _renderGpsMarkers(outset);
+      return;
+    } catch (e) { /* fall through */ }
+  }
+  _renderGpsMarkers(subset);
 }
 
 async function loadAiAnalytics() {
@@ -2595,36 +3549,311 @@ function renderValTasks(tasks) {
   }).join('')}</div>`;
 }
 
-function renderValFlags(flags) {
-  const wrap = document.getElementById('valFlagsWrap');
+function renderValFlags(_ignored) {
+  // Superseded by renderValidatorFlagged which loads from /api/validators/flagged
+  loadValidatorFlagged();
+}
+
+async function loadValidatorFlagged() {
+  const body = document.getElementById('valFlagsBody');
   const count = document.getElementById('valFlagCount');
-  if (!wrap) return;
-  if (count) count.textContent = `${flags?.length || 0} flag(s)`;
-  if (!flags || !flags.length) { wrap.innerHTML = '<div style="text-align:center;padding:20px;color:#94a3b8">No flagged records.</div>'; return; }
-  const badge = t => t === 'Duplicate Household ID' ? '<span class="badge br">Duplicate HH</span>'
-    : t === 'Non-Eligible Child' ? '<span class="badge bh">Non-Eligible</span>'
-    : t === 'Education vs Occupation' ? '<span class="badge bp">Edu vs Occ</span>'
-    : '<span class="badge">' + _escHtml(t) + '</span>';
-  wrap.innerHTML = `<table id="valFlagsTable" style="width:100%;border-collapse:collapse;font-size:13px">
-    <thead><tr style="background:#f8fafc;position:sticky;top:0;z-index:1">
-      <th style="padding:8px 10px;text-align:left;font-weight:700;color:#475569;border-bottom:1px solid #e2e8f0">Type</th>
-      <th style="padding:8px 10px;text-align:left;font-weight:700;color:#475569;border-bottom:1px solid #e2e8f0">LGA</th>
-      <th style="padding:8px 10px;text-align:left;font-weight:700;color:#475569;border-bottom:1px solid #e2e8f0">Ward</th>
-      <th style="padding:8px 10px;text-align:left;font-weight:700;color:#475569;border-bottom:1px solid #e2e8f0">RA</th>
-      <th style="padding:8px 10px;text-align:left;font-weight:700;color:#475569;border-bottom:1px solid #e2e8f0">Detail</th>
-    </tr></thead>
-    <tbody>${flags.map(f => `<tr>
-      <td style="padding:6px 10px;border-bottom:1px solid #f1f5f9">${badge(f.type)}</td>
-      <td style="padding:6px 10px;border-bottom:1px solid #f1f5f9">${_escHtml(f.lga || '-')}</td>
-      <td style="padding:6px 10px;border-bottom:1px solid #f1f5f9">${_escHtml(f.ward || '-')}</td>
-      <td style="padding:6px 10px;border-bottom:1px solid #f1f5f9">${_escHtml(f.ra || '-')}</td>
-      <td style="padding:6px 10px;border-bottom:1px solid #f1f5f9;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${_escHtml(f.detail)}">${_escHtml(f.detail)}</td>
-    </tr>`).join('')}</tbody>
-  </table>`;
+  if (!body) return;
+  body.innerHTML = '<tr><td colspan="13" style="text-align:center;color:var(--text-muted);padding:16px">Loading…</td></tr>';
+  try {
+    const rows = await api('/api/validators/flagged');
+    if (count) count.textContent = `${rows.length} flagged`;
+    if (!rows.length) {
+      body.innerHTML = '<tr><td colspan="13" style="text-align:center;color:var(--text-muted);padding:20px">No records need review ✓</td></tr>';
+      return;
+    }
+    body.innerHTML = rows.map(r => {
+      const chips = (r.flags || []).map(f => {
+        const warn = /mismatch|missing|non-eligible/i.test(f);
+        return `<span class="val-flag-chip ${warn ? 'warn' : ''}">${_esc(f)}</span>`;
+      }).join('');
+      return `<tr>
+        <td><strong>${_esc(r.unique_code || '—')}</strong></td>
+        <td>${_esc(r.lga || '—')}</td>
+        <td>${_esc(r.ward || '—')}</td>
+        <td>${_esc(r.community || '—')}</td>
+        <td>${_esc(r.head_name || '—')}</td>
+        <td>${_esc(r.head_gender || '—')}</td>
+        <td>${_esc(r.child_name_age || '—')}</td>
+        <td>${_esc(r.child_sex || '—')}</td>
+        <td>${_esc(r.education || '—')}</td>
+        <td>${_esc(r.occupation || '—')}</td>
+        <td>${_esc(r.settlement_type || '—')}</td>
+        <td>${chips || '—'}</td>
+        <td><div class="val-row-actions">
+          <button class="val-icon-btn" title="Edit" onclick="validatorEdit('${_esc(r.uuid)}')"><i class="bi bi-pencil"></i></button>
+          <button class="val-icon-btn approve" title="Approve" onclick="validatorApprove('${_esc(r.uuid)}')"><i class="bi bi-check-lg"></i></button>
+          <button class="val-icon-btn reject" title="Reject" onclick="validatorReject('${_esc(r.uuid)}')"><i class="bi bi-x-lg"></i></button>
+        </div></td>
+      </tr>`;
+    }).join('');
+  } catch (e) {
+    body.innerHTML = `<tr><td colspan="13" style="text-align:center;color:var(--red);padding:16px">${_esc(e.message)}</td></tr>`;
+  }
+}
+
+function validatorEdit(uuid) { toast('Edit for ' + uuid + ' — inline edit coming next.'); }
+function validatorApprove(uuid) { toast('Approved ' + uuid); }
+function validatorReject(uuid) { toast('Rejected ' + uuid); }
+
+// ─── Session guard + user card ─────────────────────────────
+(function _sessionInit() {
+  let user = null;
+  try { user = JSON.parse(localStorage.getItem('sarmaan_user') || 'null'); } catch (e) {}
+  const token = localStorage.getItem('sarmaan_token');
+  if (!user || !token) {
+    window.location.replace('/login');
+    return;
+  }
+  const initial = (user.name || user.email || '?').trim().charAt(0).toUpperCase();
+  const set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+  set('suAvatar', initial);
+  set('suName', user.name || 'User');
+  set('suEmail', user.email || '');
+})();
+
+function signOut() {
+  if (!confirm('Sign out of Coverage?')) return;
+  localStorage.removeItem('sarmaan_token');
+  localStorage.removeItem('sarmaan_user');
+  window.location.replace('/login');
 }
 
 initTheme();
 document.addEventListener('DOMContentLoaded', () => loadAll());
+</script>
+
+<!-- ── Admin Panel Overlay ─────────────────────────────────── -->
+<div id="adminPanelOverlay" class="admin-panel-overlay">
+  <aside class="admin-sidebar">
+    <div class="admin-sidebar-brand">
+      <h2>SARMAAN Monitoring <br/>Tool</h2>
+      <p>Super Admin Panel</p>
+    </div>
+    <nav class="admin-nav">
+      <div class="admin-nav-group">
+        <div class="admin-nav-label">Overview</div>
+        <div class="admin-nav-item active" data-subtab="overview"><i class="bi bi-speedometer2"></i> Dashboard</div>
+      </div>
+      <div class="admin-nav-group">
+        <div class="admin-nav-label">Management</div>
+        <div class="admin-nav-item" data-subtab="users"><i class="bi bi-people-fill"></i> Users</div>
+        <div class="admin-nav-item" data-subtab="projects"><i class="bi bi-folder-fill"></i> Projects</div>
+        <div class="admin-nav-item" data-subtab="sync"><i class="bi bi-arrow-repeat"></i> Data Sync</div>
+        <div class="admin-nav-item" data-subtab="lga"><i class="bi bi-geo-alt-fill"></i> LGA Assignments</div>
+        <div class="admin-nav-item" data-subtab="access"><i class="bi bi-shield-lock-fill"></i> Access Control</div>
+      </div>
+      <div class="admin-nav-group">
+        <div class="admin-nav-label">System</div>
+        <div class="admin-nav-item" data-subtab="audit"><i class="bi bi-journal-text"></i> Audit Log</div>
+        <div class="admin-nav-item" onclick="hideAdminPanel()"><i class="bi bi-bar-chart-line-fill"></i> Main Dashboard</div>
+      </div>
+    </nav>
+  </aside>
+
+  <main class="admin-main">
+    <div class="admin-topbar">
+      <h1>Admin <span class="admin-topbar-accent">Panel</span></h1>
+      <span class="admin-role-badge role-super-admin"><i class="bi bi-shield-fill-check"></i> Super Admin</span>
+    </div>
+
+    <div class="admin-content">
+      <!-- Overview -->
+      <div class="admin-subsection active" id="admin-sub-overview">
+        <div class="admin-section-title"><i class="bi bi-speedometer2"></i> Overview</div>
+        <div class="admin-stat-row">
+          <div class="admin-stat-card">
+            <div class="admin-stat-icon icon-green"><i class="bi bi-people-fill"></i></div>
+            <div class="admin-stat-body">
+              <div class="admin-stat-value" id="admStatUsers">—</div>
+              <div class="admin-stat-label">Total Users</div>
+            </div>
+          </div>
+          <div class="admin-stat-card">
+            <div class="admin-stat-icon icon-blue"><i class="bi bi-folder-fill"></i></div>
+            <div class="admin-stat-body">
+              <div class="admin-stat-value" id="admStatProjects">—</div>
+              <div class="admin-stat-label">Projects</div>
+            </div>
+          </div>
+          <div class="admin-stat-card">
+            <div class="admin-stat-icon icon-yellow"><i class="bi bi-shield-check"></i></div>
+            <div class="admin-stat-body">
+              <div class="admin-stat-value" id="admStatValidators">—</div>
+              <div class="admin-stat-label">Validators</div>
+            </div>
+          </div>
+          <div class="admin-stat-card">
+            <div class="admin-stat-icon icon-pink"><i class="bi bi-activity"></i></div>
+            <div class="admin-stat-body">
+              <div class="admin-stat-value" id="admStatAudit">—</div>
+              <div class="admin-stat-label">Audit Events</div>
+            </div>
+          </div>
+        </div>
+        <div class="admin-card">
+          <div class="admin-card-head">
+            <h3><i class="bi bi-people-fill"></i> Recent Users</h3>
+            <button class="admin-btn admin-btn-primary" onclick="adminShowSubtab('users')"><i class="bi bi-arrow-right"></i> Manage All</button>
+          </div>
+          <div class="admin-table-wrap">
+            <table class="admin-table">
+              <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th></tr></thead>
+              <tbody id="admRecentUsersBody"><tr><td colspan="4" class="admin-table-empty">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Users -->
+      <div class="admin-subsection" id="admin-sub-users" style="display:none">
+        <div class="admin-section-title"><i class="bi bi-people-fill"></i> Users</div>
+        <div class="admin-card">
+          <div class="admin-card-head">
+            <h3>All Users</h3>
+            <div style="display:flex;gap:10px;align-items:center">
+              <span class="admin-count" id="admUsersCount">0</span>
+              <button class="admin-btn admin-btn-primary" onclick="admOpenCreateUser()"><i class="bi bi-plus-lg"></i> Create User</button>
+            </div>
+          </div>
+          <div class="admin-table-wrap">
+            <table class="admin-table">
+              <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>LGAs</th><th>Status</th><th>Created</th><th></th></tr></thead>
+              <tbody id="admUsersBody"><tr><td colspan="7" class="admin-table-empty">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Create User Modal -->
+      <div class="admin-modal-overlay" id="admCreateUserModal" onclick="if(event.target===this)admCloseCreateUser()">
+        <div class="admin-modal">
+          <div class="admin-modal-head">
+            <h3>Create User</h3>
+            <button class="admin-modal-close" onclick="admCloseCreateUser()"><i class="bi bi-x-lg"></i></button>
+          </div>
+          <form onsubmit="return admSubmitCreateUser(event)">
+            <div class="admin-field"><label>Full name</label><input type="text" id="admNewName" required /></div>
+            <div class="admin-field"><label>Email</label><input type="email" id="admNewEmail" required /></div>
+            <div class="admin-field">
+              <label>Role</label>
+              <select id="admNewRole" required onchange="admToggleLgaRow()">
+                <option value="">Select a role</option>
+                <option value="super_admin">Super Admin</option>
+                <option value="admin">Admin</option>
+                <option value="validator">Validator</option>
+                <option value="public">Public</option>
+              </select>
+            </div>
+            <div class="admin-field"><label>Password <span style="color:var(--text-muted);font-weight:400;font-size:11px">(leave blank to send invite link)</span></label><input type="password" id="admNewPassword" placeholder="Optional — invite link generated if empty" /></div>
+            <div class="admin-field" id="admLgaRow" style="display:none">
+              <label>Assigned LGAs <span style="color:var(--text-muted);font-weight:400;font-size:11px">(click to toggle — validators only)</span></label>
+              <div class="admin-chip-set" id="admLgaChips">Loading LGAs…</div>
+            </div>
+            <div id="admCreateErr" class="admin-err"></div>
+            <div id="admInviteBox" class="admin-info-box" style="display:none"></div>
+            <div class="admin-modal-actions">
+              <button type="button" class="admin-btn admin-btn-outline" onclick="admCloseCreateUser()">Cancel</button>
+              <button type="submit" class="admin-btn admin-btn-primary" id="admCreateBtn"><i class="bi bi-check-lg"></i> Create User</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Projects -->
+      <div class="admin-subsection" id="admin-sub-projects" style="display:none">
+        <div class="admin-section-title"><i class="bi bi-folder-fill"></i> Projects</div>
+        <div class="admin-card">
+          <div class="admin-card-head">
+            <h3>All Projects</h3>
+            <span class="admin-count" id="admProjectsCount">0</span>
+          </div>
+          <div class="admin-table-wrap">
+            <table class="admin-table">
+              <thead><tr><th>ID</th><th>Name</th><th>Description</th><th>Status</th><th>Created</th></tr></thead>
+              <tbody id="admProjectsBody"><tr><td colspan="5" class="admin-table-empty">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Data Sync (placeholder) -->
+      <div class="admin-subsection" id="admin-sub-sync" style="display:none">
+        <div class="admin-section-title"><i class="bi bi-arrow-repeat"></i> Data Sync</div>
+        <div class="admin-card admin-card-placeholder">
+          <i class="bi bi-arrow-repeat"></i>
+          <h3>Data sync configuration coming up next</h3>
+          <p>Per-project sync history, campaign toggles and the auto-sync interval will live here once endpoints land.</p>
+        </div>
+      </div>
+
+      <!-- LGA Assignments (placeholder) -->
+      <div class="admin-subsection" id="admin-sub-lga" style="display:none">
+        <div class="admin-section-title"><i class="bi bi-geo-alt-fill"></i> LGA Assignments</div>
+        <div class="admin-card admin-card-placeholder">
+          <i class="bi bi-geo-alt-fill"></i>
+          <h3>LGA assignment matrix coming up next</h3>
+          <p>Per-validator LGA scope by project — the form + the assignment table go here.</p>
+        </div>
+      </div>
+
+      <!-- Access Control (placeholder) -->
+      <div class="admin-subsection" id="admin-sub-access" style="display:none">
+        <div class="admin-section-title"><i class="bi bi-shield-lock-fill"></i> Access Control</div>
+        <div class="admin-card">
+          <div class="admin-card-head">
+            <h3>Role tiers</h3>
+            <span class="admin-count">4 levels</span>
+          </div>
+          <div class="admin-role-tiers">
+            <div class="admin-role-tier role-super-admin-tier"><span class="dot"></span><div><h4>Super Admin</h4><p>Full system access</p></div></div>
+            <div class="admin-role-tier role-admin-tier"><span class="dot"></span><div><h4>Admin</h4><p>Dashboard &amp; validation</p></div></div>
+            <div class="admin-role-tier role-validator-tier"><span class="dot"></span><div><h4>Validator</h4><p>Assigned LGAs only</p></div></div>
+            <div class="admin-role-tier role-public-tier"><span class="dot"></span><div><h4>Public</h4><p>Read-only view</p></div></div>
+          </div>
+          <p style="margin-top:16px;color:var(--text-muted);font-size:13px">Per-user and per-(user, project) toggle switches will slot in below once the mutating endpoints land.</p>
+        </div>
+      </div>
+
+      <!-- Audit -->
+      <div class="admin-subsection" id="admin-sub-audit" style="display:none">
+        <div class="admin-section-title"><i class="bi bi-journal-text"></i> Audit Log</div>
+        <div class="admin-card">
+          <div class="admin-card-head">
+            <h3>Recent activity</h3>
+            <button class="admin-btn admin-btn-outline" onclick="adminLoadAudit()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+          </div>
+          <div class="admin-table-wrap">
+            <table class="admin-table">
+              <thead><tr><th>Time</th><th>User</th><th>Action</th><th>Details</th><th>IP</th></tr></thead>
+              <tbody id="admAuditBody"><tr><td colspan="5" class="admin-table-empty">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+function showAdminPanel() {
+  document.getElementById('adminPanelOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  adminShowSubtab('overview');
+}
+function hideAdminPanel() {
+  document.getElementById('adminPanelOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+  const home = document.querySelector('.nav-item[data-page="home"]');
+  if (home) home.click();
+}
+document.querySelectorAll('.admin-nav-item[data-subtab]').forEach(item => {
+  item.addEventListener('click', () => adminShowSubtab(item.dataset.subtab));
+});
 </script>
 </body>
 </html>

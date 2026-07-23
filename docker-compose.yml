@@ -1,0 +1,16 @@
+services:
+  dashboard:
+    build: ./
+    container_name: coverage-dashboard
+    ports:
+      - "5051:5051"
+    environment:
+      SECRET_KEY: "dev-secret-key-that-is-at-least-32-bytes-long-change-me"
+      SUPER_ADMIN_EMAIL: "admin"
+      SUPER_ADMIN_PASSWORD: "admin123"
+      DATABASE_URL: "sqlite:////app/data/admin.db"
+      ALLOWED_ORIGINS: ""
+      ENABLE_DOCS: "false"
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped

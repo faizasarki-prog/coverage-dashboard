@@ -1,0 +1,16 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+passlib[bcrypt]
+bcrypt<5
+PyJWT
+slowapi
+python-multipart
+jinja2
+pydantic[email]
+pandas
+numpy
+openpyxl
+pyshp
+shapely
+pyproj

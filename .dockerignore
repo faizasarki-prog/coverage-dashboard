@@ -1,0 +1,10 @@
+__pycache__
+*.pyc
+.git
+.claude
+~$*
+data
+admin.db
+*.db
+frontend/node_modules
+frontend/dist

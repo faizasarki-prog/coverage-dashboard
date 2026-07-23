@@ -7,3 +7,18 @@ coverage_survey_dashboard_concept_green.html
 headers.txt
 sarmaan_logo.jpg
 sokoto_state_logo.jpg
+
+# SQLite runtime database
+data/admin.db
+*.db
+
+# Claude Code local config
+.claude/
+
+# React build artifacts
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Local logo working copy — served copies live in static/
+coverage_logo/
