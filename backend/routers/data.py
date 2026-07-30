@@ -312,12 +312,15 @@ def _pick_col(df, candidates):
 
 
 @router.get("/api/validators/flagged")
-def api_validators_flagged() -> list[dict[str, Any]]:
+def api_validators_flagged(status: str = "pending") -> list[dict[str, Any]]:
+    from ..database import SessionLocal, ValidationDecision
     cov = data_service.cov
     child = data_service.child_info
     elig = data_service.child_eligible
     if cov is None or cov.empty:
         return []
+    with SessionLocal() as db:
+        decisions = {d.record_uuid: d.status for d in db.query(ValidationDecision).all()}
 
     col_head_name  = _pick_col(cov, ["Q11. Name of the Head of the household?", "Q11", "Head of the household"])
     col_head_gen   = _pick_col(cov, ["Q12. Gender of the Head of the household?", "Q12", "Gender of the Head"])
@@ -404,7 +407,8 @@ def api_validators_flagged() -> list[dict[str, Any]]:
             if uuid_val in missing_vacc_uuids:
                 flags.append("Missing vacc card")
 
-        if not flags:
+        record_status = decisions.get(uuid_val, "pending")
+        if status and status != "all" and record_status != status:
             continue
 
         kids = children_by_uuid.get(uuid_val, [])
@@ -426,9 +430,51 @@ def api_validators_flagged() -> list[dict[str, Any]]:
             "child_name_age": child_name_age,
             "child_sex": child_sex,
             "flags": flags,
+            "status": record_status,
         })
     rows.sort(key=lambda x: (-len(x["flags"]), x["lga"], x["ward"]))
-    return rows[:1000]
+    return rows
+
+
+class ValidatorDecisionIn(__import__("pydantic").BaseModel):
+    status: str
+    note: str | None = None
+
+
+@router.post("/api/validators/{record_uuid}/decision")
+def api_validator_decision(record_uuid: str, payload: ValidatorDecisionIn) -> dict:
+    from fastapi import HTTPException
+    from ..database import SessionLocal, ValidationDecision
+    if payload.status not in ("approved", "rejected", "pending"):
+        raise HTTPException(status_code=400, detail="status must be approved, rejected, or pending")
+    with SessionLocal() as db:
+        existing = db.query(ValidationDecision).filter(ValidationDecision.record_uuid == record_uuid).one_or_none()
+        if existing:
+            existing.status = payload.status
+            existing.note = payload.note
+            existing.decided_at = datetime.utcnow()
+        else:
+            db.add(ValidationDecision(record_uuid=record_uuid, status=payload.status, note=payload.note))
+        db.commit()
+    return {"uuid": record_uuid, "status": payload.status}
+
+
+@router.get("/api/validators/summary")
+def api_validator_summary() -> dict:
+    from ..database import SessionLocal, ValidationDecision
+    from sqlalchemy import func
+    with SessionLocal() as db:
+        by_status = dict(db.query(ValidationDecision.status, func.count(ValidationDecision.id))
+                         .group_by(ValidationDecision.status).all())
+    all_records = api_validators_flagged(status="all")
+    flagged = [r for r in all_records if r["flags"]]
+    return {
+        "pending": len([r for r in all_records if r["status"] == "pending"]),
+        "approved": int(by_status.get("approved", 0)),
+        "rejected": int(by_status.get("rejected", 0)),
+        "total": len(all_records),
+        "flagged": len(flagged),
+    }
 
 
 @router.get("/api/quality/by-enumerator")

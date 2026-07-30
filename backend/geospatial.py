@@ -110,7 +110,7 @@ def rebuild_gps_points_table(cov: pd.DataFrame) -> dict:
     ward_col = _pick_column(cov, ["Confirm your ward", "Q3.Ward", "Q3. Ward"])
     community_col = _pick_column(cov, ["Confirm your community", "Q4. Community Name"])
     uuid_col = _pick_column(cov, ["_uuid", "uuid"])
-    ra_col = _pick_column(cov, ["Q1. Research Assistant", "researcher_id"])
+    ra_col = _pick_column(cov, ["confirm user and phone number", "Q1. Research Assistant", "researcher_id", "enumerator"])
 
     df = cov.dropna(subset=[lat_col, lng_col]).copy()
     df[lat_col] = pd.to_numeric(df[lat_col], errors="coerce")
@@ -431,9 +431,17 @@ def _wards_or_settlements(level: str, lga: str, ward: str | None = None) -> list
         if not key_val:
             continue
         key = _norm(key_val)
-        b = buckets.setdefault(key, {"name": str(key_val).strip(), "points": 0, "issues": 0})
+        b = buckets.setdefault(key, {
+            "name": str(key_val).strip(),
+            "points": 0, "issues": 0,
+            "out_lga": 0, "out_ward": 0, "out_settlement": 0, "duplicates": 0,
+        })
         b["points"] += 1
         is_dup = dup_map.get((round(r.lat, 6), round(r.lng, 6)), 0) > 1
+        if is_dup: b["duplicates"] += 1
+        if not r.in_lga: b["out_lga"] += 1
+        if not r.in_ward: b["out_ward"] += 1
+        if not r.in_settlement: b["out_settlement"] += 1
         if is_dup or not r.in_lga or not r.in_ward or not r.in_settlement:
             b["issues"] += 1
 
@@ -442,7 +450,7 @@ def _wards_or_settlements(level: str, lga: str, ward: str | None = None) -> list
         pct = round(b["issues"] / b["points"] * 100, 0) if b["points"] else 0
         b["issues_pct"] = int(pct)
         out.append(b)
-    out.sort(key=lambda x: x["name"].lower())
+    out.sort(key=lambda x: -x["issues_pct"])
     return out
 
 

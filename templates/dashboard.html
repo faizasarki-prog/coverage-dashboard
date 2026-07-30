@@ -95,7 +95,7 @@ body.sidebar-collapsed .sidebar-toggle .bi { transform: rotate(180deg); }
 .sidebar-footer { padding: 10px 18px; border-top: 1px solid rgba(255,255,255,0.08); font-size: 13px; color: rgba(255,255,255,0.3); white-space: nowrap; }
 .sidebar.collapsed .sidebar-footer { display: none; }
 .sidebar-footer a { color: rgba(255,255,255,0.5); text-decoration: underline; }
-.main-content { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-height: 100vh; transition: margin-left var(--transition); }
+.main-content { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-height: 100vh; min-width: 0; transition: margin-left var(--transition); }
 .main-content.expanded { margin-left: var(--sidebar-w-collapsed); }
 .topbar { display: flex; justify-content: space-between; align-items: flex-start; padding: 18px 24px 12px; background: transparent; border: none; box-shadow: none; position: static; z-index: auto; }
 .topbar-left { display: flex; align-items: flex-start; gap: 14px; }
@@ -103,6 +103,8 @@ body.sidebar-collapsed .sidebar-toggle .bi { transform: rotate(180deg); }
 .topbar-title { font-family: 'Fraunces', Georgia, serif; font-size: 22px; font-weight: 600; color: var(--ink); }
 .topbar-subtitle { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
 .topbar-actions { display: flex; align-items: center; gap: 8px; padding-top: 4px; }
+.topbar-logout { background: #FEE2E2 !important; color: #B91C1C !important; border-color: #FECACA !important; margin-left: 6px; }
+.topbar-logout:hover { background: #FCA5A5 !important; color: #fff !important; }
 .btn { padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; transition: all var(--transition); font-family: inherit; }
 .btn-outline { background: var(--white); border: 1.5px solid var(--border); color: var(--text-primary); }
 .btn-outline:hover { border-color: var(--olive); background: var(--sand); }
@@ -125,7 +127,7 @@ body.sidebar-collapsed .sidebar-toggle .bi { transform: rotate(180deg); }
 .filter-chip button { background: var(--sand); border: none; color: var(--text-muted); cursor: pointer; width: 18px; height: 18px; font-size: 14px; line-height: 1; padding: 0; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; transition: .12s; }
 .filter-chip button:hover { background: var(--red); color: #fff; }
 .btn-clear-filters { margin-left: auto; font-size: 13px; color: var(--red); background: none; border: none; cursor: pointer; font-weight: 500; }
-.page-content { flex: 1; padding: 8px 24px 40px; display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
+.page-content { flex: 1; padding: 8px 24px 40px; display: flex; flex-direction: column; overflow: hidden; min-height: 0; min-width: 0; }
 .page-section { display: none; }
 .page-section.active { display: block; overflow: auto; }
 .page-header { margin-bottom: 28px; display: none; }
@@ -181,7 +183,15 @@ body.sidebar-collapsed .sidebar-toggle .bi { transform: rotate(180deg); }
 /* ─── Admin Panel Overlay ─────────────────────────────────── */
 .admin-panel-overlay { position: fixed; inset: 0; z-index: 2500; background: #F5F7F5; display: none; overflow: hidden; }
 .admin-panel-overlay.open { display: flex; }
-.admin-sidebar { width: 260px; background: var(--ink); color: #fff; display: flex; flex-direction: column; overflow-y: auto; flex-shrink: 0; }
+.admin-sidebar { width: 260px; background: var(--ink); color: #fff; display: flex; flex-direction: column; overflow-y: auto; flex-shrink: 0; position: relative; transition: width .22s ease; }
+.admin-sidebar.collapsed { width: 62px; }
+.admin-sidebar.collapsed .admin-sidebar-brand, .admin-sidebar.collapsed .admin-nav-label, .admin-sidebar.collapsed .admin-nav-item span:not(.material-symbols-outlined) { display: none; }
+.admin-sidebar.collapsed .admin-nav-item { justify-content: center; padding: 10px 0; }
+.admin-sidebar.collapsed .admin-nav-item i { margin: 0; }
+.admin-sidebar.collapsed.active-tag .admin-nav-item.active { border-left-width: 3px; }
+.admin-sidebar-toggle { position: absolute; top: 18px; right: -14px; width: 28px; height: 28px; border-radius: 50%; background: #fff; color: var(--olive-dark); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,.15); z-index: 10; transition: transform .18s ease; font-size: 12px; }
+.admin-sidebar-toggle:hover { color: var(--ink); }
+.admin-sidebar.collapsed .admin-sidebar-toggle i { transform: rotate(180deg); }
 .admin-sidebar-brand { padding: 22px 20px 18px; border-bottom: 1px solid rgba(255,255,255,.08); }
 .admin-sidebar-brand h2 { font-family: 'Fraunces', Georgia, serif; font-size: 17px; font-weight: 600; line-height: 1.2; color: #7FC29B; }
 .admin-sidebar-brand h2 br + * , .admin-sidebar-brand h2 { color: #7FC29B; }
@@ -189,10 +199,12 @@ body.sidebar-collapsed .sidebar-toggle .bi { transform: rotate(180deg); }
 .admin-nav { padding: 8px 0; flex: 1; }
 .admin-nav-group { padding: 10px 0 4px; }
 .admin-nav-label { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,.4); padding: 8px 20px 6px; }
-.admin-nav-item { display: flex; align-items: center; gap: 10px; font-size: 13px; color: #B9CBBE; padding: 9px 20px; cursor: pointer; transition: all .15s; }
-.admin-nav-item i { font-size: 15px; opacity: .8; width: 18px; }
-.admin-nav-item:hover { background: rgba(255,255,255,.05); color: #fff; }
-.admin-nav-item.active { background: #22432E; color: #fff; font-weight: 500; border-left: 3px solid #7FC29B; padding-left: 17px; }
+.admin-nav-item { display: flex; align-items: center; gap: 10px; font-size: 13px; color: #B9CBBE; padding: 9px 20px; cursor: pointer; transition: all .15s ease; border-left: 3px solid transparent; }
+.admin-nav-item i { font-size: 15px; width: 18px; text-align: center; color: #7FC29B; opacity: .75; transition: opacity .15s ease, color .15s ease; }
+.admin-nav-item:hover { background: rgba(127,194,155,.08); color: #fff; }
+.admin-nav-item:hover i { opacity: 1; }
+.admin-nav-item.active { background: #22432E; color: #fff; font-weight: 500; border-left-color: #7FC29B; padding-left: 17px; }
+.admin-nav-item.active i { color: #86EFAC; opacity: 1; }
 .admin-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: #F5F7F5; }
 .admin-topbar { display: flex; align-items: center; justify-content: space-between; padding: 18px 32px; background: #fff; border-bottom: 1px solid var(--border); }
 .admin-topbar h1 { font-family: 'Fraunces', Georgia, serif; font-size: 22px; font-weight: 700; color: var(--ink); margin: 0; }
@@ -253,6 +265,11 @@ body.sidebar-collapsed .sidebar-toggle .bi { transform: rotate(180deg); }
 .admin-role-tier .dot { width: 10px; height: 10px; border-radius: 50%; margin-top: 6px; flex-shrink: 0; }
 .admin-role-tier h4 { font-family: 'Fraunces', Georgia, serif; font-size: 14px; font-weight: 600; color: var(--ink); margin: 0 0 3px; }
 .admin-role-tier p { font-size: 12px; color: var(--text-muted); margin: 0; }
+.admin-sync-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+@media (max-width: 900px) { .admin-sync-grid { grid-template-columns: repeat(2, 1fr); } }
+.admin-sync-cell { padding: 14px; background: #F9FBF9; border: 1px solid var(--border); border-radius: 10px; }
+.admin-sync-cell .cell-lbl { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px; }
+.admin-sync-cell .cell-val { font-family: 'Fraunces', Georgia, serif; font-size: 18px; font-weight: 600; color: var(--ink); }
 .admin-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(15,30,20,.5); z-index: 3000; align-items: center; justify-content: center; padding: 24px; }
 .admin-modal-overlay.open { display: flex; }
 .admin-modal { background: #fff; border-radius: 14px; width: 100%; max-width: 460px; padding: 24px 26px; box-shadow: 0 20px 60px rgba(0,0,0,.3); max-height: 90vh; overflow-y: auto; }
@@ -335,14 +352,45 @@ body.sidebar-collapsed .sidebar-toggle .bi { transform: rotate(180deg); }
 .val-row-actions { display: inline-flex; gap: 4px; }
 .val-icon-btn { width: 26px; height: 26px; border-radius: 6px; border: 1px solid var(--border); background: #fff; color: var(--text-muted); display: inline-flex; align-items: center; justify-content: center; font-size: 12px; }
 .val-icon-btn:hover { color: var(--ink); border-color: var(--olive); }
-/* Validators page — contain within viewport, table scrolls internally */
-#page-validators.active { display: flex; flex-direction: column; height: calc(100vh - 100px); }
-#page-validators .val-flags-panel { flex: 1; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
-#page-validators .val-table-wrap { flex: 1; overflow: auto; min-height: 220px; }
-#page-validators .val-flags-table { width: 100%; font-size: 12px; border-collapse: separate; border-spacing: 0; }
+/* Validators page — page fills viewport, ONLY the table scrolls (both axes) */
+#page-validators.active { flex: 1; display: flex; flex-direction: column; min-height: 0; min-width: 0; overflow: hidden; }
+#page-validators .val-page-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 10px; flex-shrink: 0; }
+#page-validators .val-stat-row { display: grid; grid-template-columns: repeat(3, 1fr); grid-auto-rows: min-content; gap: 8px; margin-bottom: 10px; flex-shrink: 0; }
+@media (max-width: 700px)  { #page-validators .val-stat-row { grid-template-columns: repeat(2, 1fr); } }
+#page-validators .val-mini-card {
+  padding: 14px 16px; background: #fff; border: 1px solid var(--border); border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(15,54,40,.04); display: flex; align-items: center; gap: 14px;
+  position: relative; overflow: hidden; transition: transform .15s ease, box-shadow .18s ease;
+}
+#page-validators .val-mini-card:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(15,54,40,.08); }
+#page-validators .val-mini-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--tone, #94A3B8); border-radius: 10px 0 0 10px; }
+#page-validators .val-mini-card .v-mc-icon { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 17px; background: var(--tone-bg, #F1F5F9); color: var(--tone, #64748B); flex-shrink: 0; }
+#page-validators .val-mini-card .v-mc-body { display: flex; flex-direction: column; gap: 3px; }
+#page-validators .val-mini-card .v-mc-num { font-family: 'Fraunces', Georgia, serif; font-size: 24px; font-weight: 700; line-height: 1; color: var(--ink); }
+#page-validators .val-mini-card .v-mc-lbl { font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
+#page-validators .val-mini-card.tone-neutral { --tone: #64748B; --tone-bg: #F1F5F9; }
+#page-validators .val-mini-card.tone-danger  { --tone: #DC2626; --tone-bg: #FEE2E2; }
+#page-validators .val-mini-card.tone-success { --tone: #16A34A; --tone-bg: #DCFCE7; }
+#page-validators .val-mini-card.tone-warn    { --tone: #B45309; --tone-bg: #FEF3C7; }
+#page-validators .val-mini-card.tone-info    { --tone: #1E40AF; --tone-bg: #DBEAFE; }
+#page-validators .val-mini-card.tone-purple  { --tone: #6D28D9; --tone-bg: #EDE9FE; }
+#page-validators .val-tabs { display: flex; gap: 4px; margin-bottom: 12px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+#page-validators .val-tab { display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--text-muted); font-size: 13px; font-weight: 500; cursor: pointer; font-family: inherit; margin-bottom: -1px; }
+#page-validators .val-tab:hover { color: var(--ink); }
+#page-validators .val-tab.active { color: var(--olive); border-bottom-color: var(--olive); font-weight: 600; }
+#page-validators .val-tab-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 20px; padding: 0 7px; background: #E5EEDD; color: var(--olive-dark); border-radius: 10px; font-size: 11px; font-weight: 700; }
+#page-validators .val-tab.active .val-tab-badge { background: var(--olive); color: #fff; }
+.val-qc-active { display: inline-block; padding: 3px 10px; border-radius: 12px; background: #DCFCE7; color: #166534; font-size: 10.5px; font-weight: 700; }
+.val-qc-inactive { display: inline-block; padding: 3px 10px; border-radius: 12px; background: #FEF3C7; color: #B45309; font-size: 10.5px; font-weight: 700; }
+#page-validators .val-flags-panel { flex: 1; display: flex; flex-direction: column; min-height: 0; min-width: 0; overflow: hidden; padding: 10px 12px 12px; max-width: 100%; }
+#page-validators .val-flags-panel .panel-head { flex-shrink: 0; margin-bottom: 8px; }
+#page-validators .val-table-wrap { flex: 1; overflow-x: auto; overflow-y: auto; min-height: 0; min-width: 0; width: 100%; max-width: 100%; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
+#page-validators .val-flags-table { min-width: 1400px; font-size: 12px; border-collapse: separate; border-spacing: 0; }
 #page-validators .val-flags-table thead th { position: sticky; top: 0; z-index: 2; background: #F9FBF9; border-bottom: 2px solid var(--border); white-space: nowrap; padding: 10px 12px; font-size: 10.5px; }
 #page-validators .val-flags-table tbody td { padding: 8px 12px; vertical-align: top; }
-#page-validators .val-flags-table tbody td:nth-child(5), #page-validators .val-flags-table tbody td:nth-child(7) { max-width: 220px; white-space: normal; word-break: break-word; }
+#page-validators .val-flags-table tbody td:nth-child(5), #page-validators .val-flags-table tbody td:nth-child(7) { max-width: 200px; white-space: normal; word-break: break-word; }
+/* horizontal scrollbar sits on the wrap, visible at the bottom of the table area */
+#page-validators .val-table-wrap::-webkit-scrollbar { height: 10px; width: 10px; }
 th.qc-sort { cursor: pointer; user-select: none; transition: color .12s ease; }
 th.qc-sort:hover { color: var(--olive-dark); }
 th.qc-sort .qc-arrow { display: inline-block; margin-left: 4px; font-size: 10px; opacity: 0.6; }
@@ -369,9 +417,15 @@ th.qc-sort .qc-arrow { display: inline-block; margin-left: 4px; font-size: 10px;
 .geo-lh-pct { text-align: center; }
 .geo-list { flex: 1; overflow-y: auto; }
 .geo-list-empty { padding: 20px; text-align: center; color: var(--text-muted); font-size: 13px; }
-.geo-lga-row { display: grid; grid-template-columns: 1fr 90px; align-items: center; padding: 10px 14px; border-bottom: 1px solid #E5EEDD; cursor: pointer; transition: background .12s; }
+.geo-lga-row-wrap { border-bottom: 1px solid #E5EEDD; }
+.geo-lga-row-wrap:hover { background: #F5FAF3; }
+.geo-lga-row { display: grid; grid-template-columns: 1fr 90px; align-items: center; padding: 10px 14px; cursor: pointer; transition: background .12s; }
 .geo-lga-row:hover { background: #EAF1E4; }
 .geo-lga-row.active { background: #DCFCE7; }
+.geo-issue-row { display: flex; flex-wrap: wrap; gap: 5px; padding: 0 14px 8px; }
+.geo-issue-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; background: #FEE2E2; color: #B91C1C; border: 1px solid #FCA5A5; border-radius: 10px; font-size: 10.5px; cursor: pointer; transition: background .12s; }
+.geo-issue-chip:hover { background: #FCA5A5; color: #fff; }
+.geo-issue-chip b { font-weight: 700; }
 .geo-lga-name { font-size: 13px; font-weight: 500; color: var(--ink); }
 .geo-lga-row.dim .geo-lga-name { color: #94A3B8; font-weight: 400; }
 .geo-pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 14px; font-size: 11px; font-weight: 600; background: #F1F5F9; color: #475569; margin: 0 auto; }
@@ -730,9 +784,6 @@ body.filter-open .chat-fab, body.filter-open .chat-panel { display: none !import
         <div class="su-name" id="suName">Guest</div>
         <div class="su-email" id="suEmail">Not signed in</div>
       </div>
-      <button class="su-logout" onclick="signOut()" title="Sign out">
-        <i class="bi bi-box-arrow-right"></i>
-      </button>
     </div>
     <div class="sidebar-footer">
       <div id="lastUpdated" style="font-size:13px;color:rgba(255,255,255,.45)">Not yet loaded</div>
@@ -989,6 +1040,7 @@ body.filter-open .chat-fab, body.filter-open .chat-panel { display: none !import
         <button class="btn-icon" onclick="openSettings()" title="Theme &amp; Settings"><i class="bi bi-palette-fill"></i></button>
         <button class="btn btn-outline" id="refreshBtn" onclick="loadAll()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
         <span id="lastUpdated" style="font-size:12px;color:var(--text-muted);white-space:nowrap"></span>
+        <button class="btn-icon topbar-logout" onclick="signOut()" title="Sign out"><i class="bi bi-box-arrow-right"></i></button>
       </div>
     </header>
 
@@ -1455,29 +1507,29 @@ body.filter-open .chat-fab, body.filter-open .chat-panel { display: none !import
           <div class="section-head"><h2>Boundary compliance</h2><span class="count" id="geo-boundary-count">— shapes loaded</span></div>
           <hr class="section-hr">
           <div class="stat-row">
-            <div class="stat">
+            <div class="stat" onclick="geoSetFilter('out_state')" style="cursor:pointer">
+              <div class="stat-icon" style="background:#DBEAFE;color:#1E40AF"><i class="bi bi-globe2"></i></div>
+              <div class="eyebrow">Outside State</div>
+              <div class="n" id="geo-out-state">—</div>
+              <div class="d">Points beyond Sokoto State boundary</div>
+            </div>
+            <div class="stat" onclick="geoSetFilter('out_lga')" style="cursor:pointer">
               <div class="stat-icon" style="background:#FEE2E2;color:#B91C1C"><i class="bi bi-geo-alt"></i></div>
-              <div class="eyebrow">Outside LGA polygons</div>
+              <div class="eyebrow">Outside LGA</div>
               <div class="n" id="geo-out-lga">—</div>
-              <div class="d">Points not falling in any LGA shape</div>
+              <div class="d">Points not falling in any planned LGA</div>
             </div>
-            <div class="stat">
+            <div class="stat" onclick="geoSetFilter('out_ward')" style="cursor:pointer">
               <div class="stat-icon" style="background:#FEF3C7;color:#B45309"><i class="bi bi-signpost-split"></i></div>
-              <div class="eyebrow">Outside ward polygons</div>
+              <div class="eyebrow">Outside Ward</div>
               <div class="n" id="geo-out-ward">—</div>
-              <div class="d">Points not falling in any ward shape</div>
+              <div class="d">Points not falling in any planned ward</div>
             </div>
-            <div class="stat">
+            <div class="stat" onclick="geoSetFilter('out_settlement')" style="cursor:pointer">
               <div class="stat-icon" style="background:#FCE7F3;color:#BE185D"><i class="bi bi-houses"></i></div>
-              <div class="eyebrow">Outside settlement polygons</div>
+              <div class="eyebrow">Outside Settlement</div>
               <div class="n" id="geo-out-settlement">—</div>
               <div class="d">Points not falling in any settlement extent</div>
-            </div>
-            <div class="stat">
-              <div class="stat-icon" style="background:#E0E7FF;color:#4338CA"><i class="bi bi-shuffle"></i></div>
-              <div class="eyebrow">Name mismatches</div>
-              <div class="n" id="geo-name-mismatch">—</div>
-              <div class="d">Reported vs matched (LGA/ward/settlement)</div>
             </div>
           </div>
         </div>
@@ -1540,80 +1592,85 @@ body.filter-open .chat-fab, body.filter-open .chat-panel { display: none !import
 
       <!-- ═══ VALIDATORS ═══ -->
       <section class="page-section" id="page-validators">
-        <div class="page-header">
+        <div class="page-header val-page-header">
           <h2><i class="bi bi-clipboard2-check-fill"></i> Validators Dashboard</h2>
         </div>
 
-        <div class="section">
-          <div class="section-head"><h2>Validation summary</h2><span class="count">7 metrics</span></div>
-          <hr class="section-hr">
-          <div class="stat-row">
-            <div class="stat">
-              <div class="eyebrow">Total records</div>
-              <div class="n" id="val-total">-</div>
-              <div class="d">All household records</div>
-            </div>
-            <div class="stat">
-              <div class="eyebrow">Validated</div>
-              <div class="n" id="val-validated">-</div>
-              <div class="d">Records reviewed</div>
-            </div>
-            <div class="stat">
-              <div class="eyebrow">Approved</div>
-              <div class="n" id="val-approved">-</div>
-              <div class="d">Passed QC review</div>
-            </div>
-            <div class="stat">
-              <div class="eyebrow">Flagged</div>
-              <div class="n" id="val-flagged">-</div>
-              <div class="d">Records with issues</div>
-            </div>
+        <div class="val-stat-row">
+          <div class="val-mini-card tone-neutral">
+            <div class="v-mc-icon"><i class="bi bi-collection"></i></div>
+            <div class="v-mc-body"><div class="v-mc-num" id="val-total">—</div><div class="v-mc-lbl">Total records</div></div>
+          </div>
+          <div class="val-mini-card tone-danger">
+            <div class="v-mc-icon"><i class="bi bi-exclamation-triangle-fill"></i></div>
+            <div class="v-mc-body"><div class="v-mc-num" id="val-flagged">—</div><div class="v-mc-lbl">Flagged</div></div>
+          </div>
+          <div class="val-mini-card tone-success">
+            <div class="v-mc-icon"><i class="bi bi-check-circle-fill"></i></div>
+            <div class="v-mc-body"><div class="v-mc-num" id="val-approved">—</div><div class="v-mc-lbl">Approved</div></div>
+          </div>
+          <div class="val-mini-card tone-warn">
+            <div class="v-mc-icon"><i class="bi bi-x-circle-fill"></i></div>
+            <div class="v-mc-body"><div class="v-mc-num" id="val-rejected">—</div><div class="v-mc-lbl">Not Approved</div></div>
+          </div>
+          <div class="val-mini-card tone-info">
+            <div class="v-mc-icon"><i class="bi bi-people-fill"></i></div>
+            <div class="v-mc-body"><div class="v-mc-num" id="val-ras">—</div><div class="v-mc-lbl">Research Assistants</div></div>
+          </div>
+          <div class="val-mini-card tone-purple">
+            <div class="v-mc-icon"><i class="bi bi-hourglass-split"></i></div>
+            <div class="v-mc-body"><div class="v-mc-num" id="val-outstanding">—</div><div class="v-mc-lbl">Outstanding</div></div>
           </div>
         </div>
 
-        <div class="section">
-          <div class="section-head"><h2>Team status</h2><span class="count">3 metrics</span></div>
-          <hr class="section-hr">
-          <div class="stat-row">
-            <div class="stat">
-              <div class="eyebrow">Outstanding</div>
-              <div class="n" id="val-outstanding">-</div>
-              <div class="d">Not yet reviewed</div>
-            </div>
-            <div class="stat">
-              <div class="eyebrow">Research assistants</div>
-              <div class="n" id="val-ras">-</div>
-              <div class="d">Active RAs</div>
-            </div>
-            <div class="stat">
-              <div class="eyebrow">Duplicate HHs</div>
-              <div class="n" id="val-dup-hh">-</div>
-              <div class="d">Duplicate household IDs</div>
-            </div>
-          </div>
+        <div class="val-tabs">
+          <button class="val-tab active" data-vstatus="pending"  onclick="valSetStatus('pending')"><i class="bi bi-hourglass-split"></i> Pending <span class="val-tab-badge" id="val-tab-pending">—</span></button>
+          <button class="val-tab" data-vstatus="approved" onclick="valSetStatus('approved')"><i class="bi bi-check-circle-fill"></i> Approved <span class="val-tab-badge" id="val-tab-approved">—</span></button>
+          <button class="val-tab" data-vstatus="rejected" onclick="valSetStatus('rejected')"><i class="bi bi-x-circle-fill"></i> Not Approved / On Hold <span class="val-tab-badge" id="val-tab-rejected">—</span></button>
+          <button class="val-tab" data-vstatus="qc" onclick="valSetStatus('qc')"><i class="bi bi-list-check"></i> Quality Checks</button>
         </div>
 
-        <div class="panel" style="margin-bottom:16px">
+        <!-- Quality Checks reference panel -->
+        <div class="panel val-flags-panel" id="valQcPanel" style="display:none">
           <div class="panel-head">
             <div>
-              <h3>Validation Tasks (VAL-01 to VAL-06)</h3>
-              <div class="sub">Each validation rule from the Process Document</div>
+              <h3>Quality Checks Reference</h3>
+              <div class="sub">The set of QC rules applied to every household record. Rows failing any of these show in the <strong>Pending</strong> tab with the flag chip.</div>
             </div>
-            <button class="btn-dl-csv" onclick="downloadDOMCSV('valTaskList','validation_tasks')" title="Download CSV"><i class="bi bi-download"></i> CSV</button>
+            <span class="admin-count">8 checks</span>
           </div>
-          <div id="valTaskList" style="padding:8px 12px"><p style="text-align:center;color:var(--text-muted);padding:16px">Loading…</p></div>
+          <div class="val-table-wrap">
+            <table class="admin-table val-flags-table" style="min-width:0">
+              <thead><tr>
+                <th style="width:32%">QC Name</th>
+                <th style="width:38%">Meaning</th>
+                <th style="width:20%">Applied on</th>
+                <th style="text-align:center">Status</th>
+              </tr></thead>
+              <tbody>
+                <tr><td><strong>Repetitive Child Selection</strong></td><td>One single child is selected more than once in the questionnaire</td><td>child_eligible sheet</td><td style="text-align:center"><span class="val-qc-active">Active</span></td></tr>
+                <tr><td><strong>Duplicate Household ID</strong></td><td>Household ID (unique_code) was submitted more than once</td><td>Main sheet</td><td style="text-align:center"><span class="val-qc-active">Active</span></td></tr>
+                <tr><td><strong>HH Gender mismatch</strong></td><td>HH Head Name signifies for man or woman, but the gender selected does not tally</td><td>Q11 vs Q12</td><td style="text-align:center"><span class="val-qc-inactive">Manual review</span></td></tr>
+                <tr><td><strong>Child Gender Mismatch</strong></td><td>Child Name signifies for girl or boy, but the gender selected does not tally</td><td>Child name vs Q89</td><td style="text-align:center"><span class="val-qc-inactive">Manual review</span></td></tr>
+                <tr><td><strong>HH Occupation and Education Mismatch</strong></td><td>HH Head does not have any formal education but the occupation selected was for professionals</td><td>Q20 vs Q21</td><td style="text-align:center"><span class="val-qc-active">Active</span></td></tr>
+                <tr><td><strong>Selection of Non-eligible child</strong></td><td>Child age above 59 months is selected and submitted</td><td>child_info: age &gt; 59 &amp; is_eligible ≥ 1</td><td style="text-align:center"><span class="val-qc-active">Active</span></td></tr>
+                <tr><td><strong>Settlement type and Basic Amenities Mismatch</strong></td><td>A settlement type was selected but the basic amenities for that settlement indicate otherwise</td><td>Q5 vs BN–CL wealth columns</td><td style="text-align:center"><span class="val-qc-active">Active</span></td></tr>
+                <tr><td><strong>Missing upload of Child Vaccination card</strong></td><td>Check for Research Assistant where all forms have no vaccination card</td><td>child_info: vaccination card image</td><td style="text-align:center"><span class="val-qc-active">Active</span></td></tr>
+              </tbody>
+            </table>
+          </div>
         </div>
 
-        <!-- Flagged Records — validator review table -->
-        <div class="panel val-flags-panel">
+        <!-- Household records — validator review table -->
+        <div class="panel val-flags-panel" id="valRecordsPanel">
           <div class="panel-head">
             <div>
-              <h3>Flagged Records for Review</h3>
-              <div class="sub">Household + child join with the QC checks applied. Click Edit to review a record, Approve to accept, or Reject to send back to the RA.</div>
+              <h3>Household Records for Review</h3>
+              <div class="sub">All records from the Kobo data pull with QC flags applied. Approve a record to move it to <strong>Approved</strong>; reject to send back to the RA in <strong>Not Approved</strong>.</div>
             </div>
             <div>
-              <span id="valFlagCount" class="admin-count">0 flagged</span>
-              <button class="btn-dl-csv" onclick="downloadTableCSV('valFlagsTable','flagged_records')" title="Download CSV"><i class="bi bi-download"></i> CSV</button>
+              <span id="valFlagCount" class="admin-count">0 records</span>
+              <button class="btn-dl-csv" onclick="downloadTableCSV('valFlagsTable','validator_records')" title="Download CSV"><i class="bi bi-download"></i> CSV</button>
             </div>
           </div>
           <div class="table-wrapper val-table-wrap" id="valFlagsWrap">
@@ -2221,6 +2278,102 @@ function adminShowSubtab(name) {
   if (name === 'users') adminLoadUsers();
   if (name === 'projects') adminLoadProjects();
   if (name === 'audit') adminLoadAudit();
+  if (name === 'sync') admLoadSyncTab();
+  if (name === 'lga') admLoadLgaAssignments();
+}
+
+async function admLoadSyncTab() {
+  try {
+    const s = await api('/api/data/status');
+    const kpiCount = await api('/api/kpis').catch(() => ({}));
+    const setV = (id, v) => { const el = document.getElementById(id); if (el) el.innerHTML = v; };
+    setV('admSync-source', s.source === 'kobo_api' ? '<span style="color:#166534">● KoboToolbox API</span>' : _esc(s.source));
+    setV('admSync-last', _esc(s.loaded_at || '—'));
+    setV('admSync-rows', kpiCount.total_households ? kpiCount.total_households.toLocaleString() : '—');
+    setV('admSync-token', s.kobo_token_set ? '<span style="color:#166534">Configured</span>' : '<span style="color:var(--text-muted)">Not set (public export)</span>');
+    setV('admSync-url', _esc(s.kobo_url || '—'));
+  } catch (e) { toast('Sync status error: ' + e.message, true); }
+  try {
+    const audit = await api('/api/audit-log?limit=200');
+    const syncs = audit.filter(a => a.action === 'data.sync' || a.action === 'user.create' || /sync|login/i.test(a.action));
+    const body = document.getElementById('admSyncHistoryBody');
+    document.getElementById('admSyncHistoryCount').textContent = syncs.length;
+    if (!syncs.length) { body.innerHTML = '<tr><td colspan="4" class="admin-table-empty">No sync events yet.</td></tr>'; return; }
+    body.innerHTML = syncs.slice(0, 30).map(a => `<tr>
+      <td>${_fmtDate(a.created_at)}</td>
+      <td>${_esc(a.user || '—')}</td>
+      <td>${_esc(a.action)} — ${_esc(a.details || '')}</td>
+      <td>${_esc(a.ip || '—')}</td>
+    </tr>`).join('');
+  } catch (e) { /* silent */ }
+}
+
+let _admLgaAllOptions = [];
+let _admEditingUserId = null;
+let _admEditingLgas = new Set();
+
+async function admLoadLgaAssignments() {
+  const body = document.getElementById('admLgaAssignBody');
+  if (!body) return;
+  body.innerHTML = '<tr><td colspan="5" class="admin-table-empty">Loading…</td></tr>';
+  try {
+    const users = await api('/api/users');
+    const validators = users.filter(u => u.role === 'validator');
+    document.getElementById('admLgaAssignCount').textContent = validators.length;
+    if (!validators.length) { body.innerHTML = '<tr><td colspan="5" class="admin-table-empty">No validators. Create one in the Users tab.</td></tr>'; return; }
+    body.innerHTML = validators.map(u => {
+      const chips = (u.lgas || []).map(l => `<span class="admin-chip active" style="cursor:default">${_esc(l)}</span>`).join(' ') || '<span style="color:var(--text-muted);font-size:12px">— none —</span>';
+      return `<tr>
+        <td><strong>${_esc(u.name)}</strong></td>
+        <td>${_esc(u.email)}</td>
+        <td>${chips}</td>
+        <td>${(u.lgas || []).length}</td>
+        <td><button class="admin-btn admin-btn-outline" style="padding:5px 10px;font-size:11px" onclick="admOpenEditLga(${u.id}, '${_esc(u.name).replace(/'/g,"\\'")}', '${_esc(u.email).replace(/'/g,"\\'")}', ${JSON.stringify(u.lgas||[]).replace(/"/g,'&quot;')})"><i class="bi bi-pencil"></i> Edit</button></td>
+      </tr>`;
+    }).join('');
+  } catch (e) { body.innerHTML = `<tr><td colspan="5" class="admin-table-empty" style="color:var(--red)">${_esc(e.message)}</td></tr>`; }
+}
+
+async function admOpenEditLga(userId, name, email, currentLgas) {
+  _admEditingUserId = userId;
+  _admEditingLgas = new Set(currentLgas || []);
+  document.getElementById('admEditLgaUser').textContent = name + ' — ' + email;
+  document.getElementById('admEditLgaErr').style.display = 'none';
+  if (!_admLgaAllOptions.length) {
+    try {
+      const all = await api('/api/geo/lga-stats');
+      _admLgaAllOptions = all.filter(r => r.is_planned).map(r => r.name);
+    } catch (e) { _admLgaAllOptions = []; }
+  }
+  _admRenderEditLgaChips();
+  document.getElementById('admEditLgaModal').classList.add('open');
+}
+function admCloseEditLga() { document.getElementById('admEditLgaModal').classList.remove('open'); }
+function _admRenderEditLgaChips() {
+  const box = document.getElementById('admEditLgaChips');
+  box.innerHTML = _admLgaAllOptions.map(name => {
+    const on = _admEditingLgas.has(name);
+    return `<span class="admin-chip ${on ? 'active' : ''}" onclick="admToggleEditLgaChip('${name.replace(/'/g,"\\'")}')">${_esc(name)}</span>`;
+  }).join('');
+}
+function admToggleEditLgaChip(name) {
+  if (_admEditingLgas.has(name)) _admEditingLgas.delete(name); else _admEditingLgas.add(name);
+  _admRenderEditLgaChips();
+}
+async function admSaveEditLga() {
+  const err = document.getElementById('admEditLgaErr');
+  err.style.display = 'none';
+  try {
+    const res = await fetch('/api/users/' + _admEditingUserId + '/lgas', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lgas: [..._admEditingLgas] }),
+    });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.detail || 'Update failed');
+    admCloseEditLga();
+    admLoadLgaAssignments();
+    toast(`Updated LGAs — ${d.lgas.length} assigned.`);
+  } catch (e) { err.textContent = e.message; err.style.display = 'block'; }
 }
 
 function _esc(s) {
@@ -2357,7 +2510,9 @@ async function admSubmitCreateUser(ev) {
     } else {
       admCloseCreateUser();
     }
-    adminLoadUsers();
+    adminShowSubtab('users');
+    await adminLoadUsers();
+    toast(`User "${body.name}" created${body.lgas.length ? ' with ' + body.lgas.length + ' LGA(s)' : ''}.`);
   } catch (e) { err.textContent = e.message || 'Error.'; err.style.display = 'block'; }
   return false;
 }
@@ -2392,6 +2547,41 @@ async function adminLoadProjects() {
     </tr>`).join('');
   } catch (e) {
     body.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--red);padding:16px">${_esc(e.message)}</td></tr>`;
+  }
+  admLoadDataStatus();
+}
+
+async function admLoadDataStatus() {
+  const badge = document.getElementById('admDataSourceBadge');
+  const meta  = document.getElementById('admDataSourceMeta');
+  if (!badge || !meta) return;
+  try {
+    const s = await api('/api/data/status');
+    badge.textContent = s.source === 'kobo_api' ? '● KoboToolbox API' : s.source;
+    badge.style.color = '#166534';
+    meta.innerHTML = `
+      <div><strong>URL:</strong> <code style="font-size:11px;background:#F3F4F6;padding:2px 6px;border-radius:4px">${_esc(s.kobo_url || '—')}</code></div>
+      <div><strong>Last synced:</strong> ${_esc(s.loaded_at || '—')}</div>
+      <div><strong>API token:</strong> ${s.kobo_token_set ? '<span style="color:#166534">configured</span>' : '<span style="color:var(--text-muted)">not set (public export)</span>'}</div>`;
+  } catch (e) {
+    badge.textContent = 'Unavailable'; badge.style.color = 'var(--red)';
+    meta.textContent = e.message;
+  }
+}
+
+async function admSyncNow() {
+  const btn = document.getElementById('admSyncBtn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Syncing…'; }
+  try {
+    const r = await fetch('/api/data/refresh', { method: 'POST' });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || 'Sync failed');
+    toast(`Synced ${(d.rows || 0).toLocaleString()} household rows from ${d.source}.`);
+    admLoadDataStatus();
+  } catch (e) {
+    toast('Sync error: ' + e.message, true);
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Sync Now'; }
   }
 }
 
@@ -2850,11 +3040,12 @@ function renderGeoBoundary(g) {
     el.textContent = fmt(val);
     el.style.color = danger && val > 0 ? '#B23A3A' : '';
   };
+  // "Outside State" = points that don't fall in ANY of the loaded (planned) LGAs
+  // — the state layer is the outer envelope of those LGAs.
+  set('geo-out-state', g.outside_lga, true);
   set('geo-out-lga', g.outside_lga, true);
   set('geo-out-ward', g.outside_ward, true);
   set('geo-out-settlement', g.outside_settlement, true);
-  const mismatch = (g.lga_mismatch || 0) + (g.ward_mismatch || 0) + (g.settlement_mismatch || 0);
-  set('geo-name-mismatch', mismatch, true);
   const s = g.shapes_loaded || {};
   const cnt = document.getElementById('geo-boundary-count');
   if (cnt) cnt.textContent = `${s.lga || 0} LGA · ${s.ward || 0} ward · ${s.settlement || 0} settlement shapes`;
@@ -2877,7 +3068,7 @@ let _gpsWardLayer = null;
 let _gpsSettlementLayer = null;
 let _gpsBaseLayer = null;
 const ZOOM_WARD = 10;
-const ZOOM_SETTLE = 12;
+const ZOOM_SETTLE = 14;
 
 const _BASEMAPS = {
   positron: () => L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '&copy; OpenStreetMap · CartoDB', maxZoom: 19 }),
@@ -2909,21 +3100,81 @@ function toggleMainSidebar() {
   setTimeout(() => { if (_gpsMap) _gpsMap.invalidateSize(); }, 250);
 }
 
+function _pointInsideLayer(latlng, layer) {
+  // Ray-cast against the largest ring of the polygon (works for L.Polygon and
+  // L.MultiPolygon layers). Returns true iff latlng falls inside.
+  const rings = _largestRing(layer);
+  if (!rings || rings.length < 3) return false;
+  const x = latlng.lng, y = latlng.lat;
+  let inside = false;
+  for (let i = 0, j = rings.length - 1; i < rings.length; j = i++) {
+    const xi = rings[i].lng, yi = rings[i].lat;
+    const xj = rings[j].lng, yj = rings[j].lat;
+    const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / ((yj - yi) || 1e-12) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+function _largestRing(layer) {
+  const latlngs = layer.getLatLngs ? layer.getLatLngs() : null;
+  if (!latlngs) return null;
+  // Flatten one level at a time until we hit an array of LatLng objects.
+  let candidates = [];
+  const walk = (node) => {
+    if (!Array.isArray(node)) return;
+    if (node.length && node[0] && typeof node[0].lat === 'number') { candidates.push(node); return; }
+    node.forEach(walk);
+  };
+  walk(latlngs);
+  if (!candidates.length) return null;
+  candidates.sort((a, b) => b.length - a.length);
+  return candidates[0];
+}
+function _interiorPointFor(layer) {
+  const ring = _largestRing(layer);
+  if (!ring || !ring.length) return null;
+  // Sample a handful of candidate points and pick the first that lies inside.
+  const candidates = [
+    L.latLng(
+      ring.reduce((s, p) => s + p.lat, 0) / ring.length,
+      ring.reduce((s, p) => s + p.lng, 0) / ring.length,
+    ),
+  ];
+  const b = layer.getBounds();
+  const cy = (b.getNorth() + b.getSouth()) / 2, cx = (b.getEast() + b.getWest()) / 2;
+  for (let step = 0.02; step < 0.4; step += 0.05) {
+    candidates.push(L.latLng(cy, cx + step));
+    candidates.push(L.latLng(cy, cx - step));
+    candidates.push(L.latLng(cy + step, cx));
+    candidates.push(L.latLng(cy - step, cx));
+  }
+  for (const c of candidates) {
+    if (_pointInsideLayer(c, layer)) return c;
+  }
+  return null;
+}
+
 function _lgaStyle(feature) {
   const p = feature.properties || {};
   if (p.is_planned) {
-    return { color: '#163628', weight: 1.5, opacity: 1, fillColor: '#3B6B4C', fillOpacity: 0.14 };
+    return { color: '#163628', weight: 1.5, opacity: 1, fillColor: '#3B6B4C', fillOpacity: 0.06 };
   }
   return { color: '#163628', weight: 1.5, opacity: 1, fillOpacity: 0 };
 }
 function _wardStyle() {
-  return { color: '#B45309', weight: 1.3, fillOpacity: 0, dashArray: '3,3' };
+  return { color: '#B45309', weight: 1.3, fill: false, fillOpacity: 0, dashArray: '3,3' };
+}
+function _lgaStyle_fillless_override(feature) {
+  const p = feature.properties || {};
+  return p.is_planned
+    ? { color: '#163628', weight: 1.5, opacity: 1, fill: false, fillOpacity: 0 }
+    : { color: '#163628', weight: 1.5, opacity: 1, fill: false, fillOpacity: 0 };
 }
 function _settlementStyle(feature) {
   const visited = (feature.properties || {}).visited;
   return visited
-    ? { color: '#14532D', weight: 1.2, fillColor: '#22C55E', fillOpacity: 0.55 }
-    : { color: '#991B1B', weight: 1.2, fillColor: '#EF4444', fillOpacity: 0.4 };
+    ? { color: '#166534', weight: 0.8, fillColor: '#22C55E', fillOpacity: 0.06 }
+    : { color: '#B91C1C', weight: 0.8, fillColor: '#EF4444', fillOpacity: 0.06 };
 }
 
 function _applyZoomCascade() {
@@ -2987,7 +3238,19 @@ async function renderGpsScatter(data) {
           layer.bindTooltip(label, { sticky: true, className: 'geo-boundary-tip' });
           layer.on('click', () => geoFocusLga(p.lganame));
           try {
-            const c = layer.getBounds().getCenter();
+            // Prefer polygon centroid over bounding-box center — the bbox center
+            // can fall outside irregular / concave LGA shapes.
+            let c;
+            if (typeof layer.getCenter === 'function') {
+              c = layer.getCenter();
+              // Verify it actually falls inside; if not, pick a vertex-derived
+              // interior point (average of the largest ring).
+              if (layer.getLatLngs && !_pointInsideLayer(c, layer)) {
+                c = _interiorPointFor(layer) || c;
+              }
+            } else {
+              c = layer.getBounds().getCenter();
+            }
             const marker = L.marker(c, {
               icon: L.divIcon({ className: 'geo-perm-label', html: p.lganame || '', iconSize: [null, null] }),
               interactive: true,
@@ -3054,14 +3317,26 @@ function _renderGeoLgaList(rows) {
       ${_pctPill(r.issues_pct || 0)}
     </div>`).join('');
 }
+function _issueBreakdown(r, area) {
+  const items = [];
+  if (r.out_lga)        items.push(`<span class="geo-issue-chip" onclick="event.stopPropagation();geoShowIssuePoints('out_lga','${area.replace(/'/g,"\\'")}','${(r.name||'').replace(/'/g,"\\'")}')">Out LGA: <b>${r.out_lga}</b></span>`);
+  if (r.out_ward)       items.push(`<span class="geo-issue-chip" onclick="event.stopPropagation();geoShowIssuePoints('out_ward','${area.replace(/'/g,"\\'")}','${(r.name||'').replace(/'/g,"\\'")}')">Out Ward: <b>${r.out_ward}</b></span>`);
+  if (r.out_settlement) items.push(`<span class="geo-issue-chip" onclick="event.stopPropagation();geoShowIssuePoints('out_settlement','${area.replace(/'/g,"\\'")}','${(r.name||'').replace(/'/g,"\\'")}')">Out Set: <b>${r.out_settlement}</b></span>`);
+  if (r.duplicates)     items.push(`<span class="geo-issue-chip" onclick="event.stopPropagation();geoShowIssuePoints('duplicates','${area.replace(/'/g,"\\'")}','${(r.name||'').replace(/'/g,"\\'")}')">Dup: <b>${r.duplicates}</b></span>`);
+  if (!items.length) return '';
+  return `<div class="geo-issue-row">${items.join('')}</div>`;
+}
 function _renderGeoWardList(rows) {
   const box = document.getElementById('geoLgaList');
   if (!box) return;
   if (!rows.length) { box.innerHTML = '<div class="geo-list-empty">No wards with data.</div>'; return; }
   box.innerHTML = rows.map(r => `
-    <div class="geo-lga-row" onclick="geoDrillToWard('${r.name.replace(/'/g,"\\'")}')">
-      <div class="geo-lga-name">${r.name}</div>
-      ${_pctPill(r.issues_pct || 0)}
+    <div class="geo-lga-row-wrap">
+      <div class="geo-lga-row" onclick="geoDrillToWard('${r.name.replace(/'/g,"\\'")}')">
+        <div class="geo-lga-name">${r.name}</div>
+        ${_pctPill(r.issues_pct || 0)}
+      </div>
+      ${_issueBreakdown(r, 'ward')}
     </div>`).join('');
 }
 function _renderGeoSettlementList(rows) {
@@ -3069,10 +3344,41 @@ function _renderGeoSettlementList(rows) {
   if (!box) return;
   if (!rows.length) { box.innerHTML = '<div class="geo-list-empty">No settlements with data.</div>'; return; }
   box.innerHTML = rows.map(r => `
-    <div class="geo-lga-row" onclick="geoDrillToSettlement('${r.name.replace(/'/g,"\\'")}')">
-      <div class="geo-lga-name">${r.name}</div>
-      ${_pctPill(r.issues_pct || 0)}
+    <div class="geo-lga-row-wrap">
+      <div class="geo-lga-row" onclick="geoDrillToSettlement('${r.name.replace(/'/g,"\\'")}')">
+        <div class="geo-lga-name">${r.name}</div>
+        ${_pctPill(r.issues_pct || 0)}
+      </div>
+      ${_issueBreakdown(r, 'settlement')}
     </div>`).join('');
+}
+
+function geoShowIssuePoints(issueType, area, name) {
+  if (!_gpsMap || !_geoAllGpsPoints) return;
+  const lgaScope = _geoNavLga;
+  const wardScope = area === 'settlement' ? _geoNavWard : (area === 'ward' ? name : _geoNavWard);
+  const settleScope = area === 'settlement' ? name : null;
+  const dupKey = new Map();
+  (_geoAllGpsPoints || []).forEach(p => {
+    const k = `${Number(p.lat).toFixed(6)},${Number(p.lng).toFixed(6)}`;
+    dupKey.set(k, (dupKey.get(k) || 0) + 1);
+  });
+  const filtered = (_geoAllGpsPoints || []).filter(p => {
+    if (lgaScope && String(p.reported_lga || '').toLowerCase() !== lgaScope.toLowerCase()) return false;
+    if (wardScope && String(p.reported_ward || '').toLowerCase() !== wardScope.toLowerCase()) return false;
+    if (settleScope && String(p.reported_community || '').toLowerCase() !== settleScope.toLowerCase()) return false;
+    if (issueType === 'out_lga')        return !p.in_lga;
+    if (issueType === 'out_ward')       return !p.in_ward;
+    if (issueType === 'out_settlement') return !p.in_settlement;
+    if (issueType === 'duplicates')     return (dupKey.get(`${Number(p.lat).toFixed(6)},${Number(p.lng).toFixed(6)}`) || 0) > 1;
+    return true;
+  });
+  if (!filtered.length) { toast('No matching points.'); return; }
+  filtered.forEach(p => { p._flag_outside_lga = true; });
+  _renderGpsMarkers(filtered);
+  const bounds = L.latLngBounds(filtered.map(p => [p.lat, p.lng]));
+  _gpsMap.fitBounds(bounds, { padding: [60, 60], maxZoom: 17 });
+  toast(`Filtered to ${filtered.length} ${issueType.replace('_', ' ')} point(s).`);
 }
 function _renderBreadcrumb() {
   const bc = document.getElementById('geoBreadcrumb');
@@ -3256,17 +3562,18 @@ function _renderGpsMarkers(points) {
 async function geoSetFilter(kind) {
   document.querySelectorAll('.geo-btn').forEach(b => b.classList.toggle('active', b.dataset.filter === kind));
   _geoActiveFilter = kind;
-  let subset = _geoAllGpsPoints.slice();
-  if (kind === 'out_lga' || kind === 'out_ward') {
-    try {
-      const flagged = await api('/api/geo/flagged?limit=5000');
-      const keyFn = kind === 'out_lga' ? f => !f.in_lga : f => !f.in_ward;
-      const outset = flagged.filter(keyFn).map(f => ({ lat: f.lat, lng: f.lng, lga: f.reported_lga, ward: f.reported_ward, community: f.reported_community, _flag_outside_lga: true }));
-      _renderGpsMarkers(outset);
-      return;
-    } catch (e) { /* fall through */ }
-  }
+  const src = _geoAllGpsPoints || [];
+  let subset;
+  if (kind === 'out_state' || kind === 'out_lga') subset = src.filter(p => !p.in_lga);
+  else if (kind === 'out_ward')                    subset = src.filter(p => !p.in_ward);
+  else if (kind === 'out_settlement')              subset = src.filter(p => !p.in_settlement);
+  else                                             subset = src.slice();
   _renderGpsMarkers(subset);
+  if (subset.length && kind) {
+    const bounds = L.latLngBounds(subset.map(p => [p.lat, p.lng]));
+    _gpsMap.fitBounds(bounds, { padding: [60, 60], maxZoom: 15 });
+    toast(`Filtered to ${subset.length.toLocaleString()} ${kind.replace('_', ' ')} point(s).`);
+  }
 }
 
 async function loadAiAnalytics() {
@@ -3554,23 +3861,65 @@ function renderValFlags(_ignored) {
   loadValidatorFlagged();
 }
 
+let _valStatus = 'pending';
+
+function valSetStatus(s) {
+  _valStatus = s;
+  document.querySelectorAll('.val-tab').forEach(t => t.classList.toggle('active', t.dataset.vstatus === s));
+  const qcPanel = document.getElementById('valQcPanel');
+  const recPanel = document.getElementById('valRecordsPanel');
+  if (s === 'qc') {
+    if (qcPanel)  qcPanel.style.display = 'flex';
+    if (recPanel) recPanel.style.display = 'none';
+  } else {
+    if (qcPanel)  qcPanel.style.display = 'none';
+    if (recPanel) recPanel.style.display = 'flex';
+    loadValidatorFlagged();
+  }
+}
+
+async function _valLoadSummary() {
+  try {
+    const s = await api('/api/validators/summary');
+    ['pending','approved','rejected'].forEach(k => {
+      const el = document.getElementById('val-tab-' + k);
+      if (el) el.textContent = (s[k] || 0).toLocaleString();
+    });
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = (v || 0).toLocaleString(); };
+    set('val-total', s.total);
+    set('val-flagged', s.flagged);
+    set('val-approved', s.approved);
+    set('val-rejected', s.rejected);
+    // Outstanding = records still awaiting a validator decision (pending)
+    set('val-outstanding', s.pending);
+    try {
+      const dq = await api('/api/dq-metrics');
+      set('val-ras', dq.active_ras);
+    } catch (e) { /* silent */ }
+  } catch (e) { /* silent */ }
+}
+
 async function loadValidatorFlagged() {
   const body = document.getElementById('valFlagsBody');
   const count = document.getElementById('valFlagCount');
   if (!body) return;
   body.innerHTML = '<tr><td colspan="13" style="text-align:center;color:var(--text-muted);padding:16px">Loading…</td></tr>';
+  _valLoadSummary();
   try {
-    const rows = await api('/api/validators/flagged');
-    if (count) count.textContent = `${rows.length} flagged`;
+    const rows = await api('/api/validators/flagged?status=' + encodeURIComponent(_valStatus));
+    if (count) count.textContent = `${rows.length.toLocaleString()} record(s)`;
     if (!rows.length) {
-      body.innerHTML = '<tr><td colspan="13" style="text-align:center;color:var(--text-muted);padding:20px">No records need review ✓</td></tr>';
+      body.innerHTML = '<tr><td colspan="13" style="text-align:center;color:var(--text-muted);padding:20px">No records in this state.</td></tr>';
       return;
     }
     body.innerHTML = rows.map(r => {
-      const chips = (r.flags || []).map(f => {
-        const warn = /mismatch|missing|non-eligible/i.test(f);
-        return `<span class="val-flag-chip ${warn ? 'warn' : ''}">${_esc(f)}</span>`;
-      }).join('');
+      const flagList = r.flags || [];
+      const chips = flagList.length
+        ? flagList.map(f => {
+            const warn = /mismatch|missing|non-eligible/i.test(f);
+            return `<span class="val-flag-chip ${warn ? 'warn' : ''}">${_esc(f)}</span>`;
+          }).join('')
+        : '<span style="color:#166534;font-size:11px">— clean —</span>';
       return `<tr>
         <td><strong>${_esc(r.unique_code || '—')}</strong></td>
         <td>${_esc(r.lga || '—')}</td>
@@ -3597,8 +3946,20 @@ async function loadValidatorFlagged() {
 }
 
 function validatorEdit(uuid) { toast('Edit for ' + uuid + ' — inline edit coming next.'); }
-function validatorApprove(uuid) { toast('Approved ' + uuid); }
-function validatorReject(uuid) { toast('Rejected ' + uuid); }
+async function _validatorDecide(uuid, status, label) {
+  try {
+    const r = await fetch('/api/validators/' + encodeURIComponent(uuid) + '/decision', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || 'Failed');
+    toast(label + ' — record moved.');
+    loadValidatorFlagged();
+  } catch (e) { toast('Error: ' + e.message, true); }
+}
+function validatorApprove(uuid) { _validatorDecide(uuid, 'approved', 'Approved'); }
+function validatorReject(uuid)  { _validatorDecide(uuid, 'rejected', 'Marked Not Approved'); }
 
 // ─── Session guard + user card ─────────────────────────────
 (function _sessionInit() {
@@ -3629,7 +3990,10 @@ document.addEventListener('DOMContentLoaded', () => loadAll());
 
 <!-- ── Admin Panel Overlay ─────────────────────────────────── -->
 <div id="adminPanelOverlay" class="admin-panel-overlay">
-  <aside class="admin-sidebar">
+  <aside class="admin-sidebar" id="adminSidebar">
+    <button class="admin-sidebar-toggle" onclick="toggleAdminSidebar()" title="Collapse / expand sidebar">
+      <i class="bi bi-chevron-double-left" id="adminSidebarToggleIcon"></i>
+    </button>
     <div class="admin-sidebar-brand">
       <h2>SARMAAN Monitoring <br/>Tool</h2>
       <p>Super Admin Panel</p>
@@ -3767,6 +4131,16 @@ document.addEventListener('DOMContentLoaded', () => loadAll());
       <!-- Projects -->
       <div class="admin-subsection" id="admin-sub-projects" style="display:none">
         <div class="admin-section-title"><i class="bi bi-folder-fill"></i> Projects</div>
+        <div class="admin-card" style="margin-bottom:16px">
+          <div class="admin-card-head">
+            <h3><i class="bi bi-cloud-download"></i> Data Source Sync</h3>
+            <div style="display:flex;gap:10px;align-items:center">
+              <span class="admin-count" id="admDataSourceBadge">Loading…</span>
+              <button class="admin-btn admin-btn-primary" id="admSyncBtn" onclick="admSyncNow()"><i class="bi bi-arrow-clockwise"></i> Sync Now</button>
+            </div>
+          </div>
+          <div id="admDataSourceMeta" style="font-size:12px;color:var(--text-muted);line-height:1.7">Loading…</div>
+        </div>
         <div class="admin-card">
           <div class="admin-card-head">
             <h3>All Projects</h3>
@@ -3781,23 +4155,76 @@ document.addEventListener('DOMContentLoaded', () => loadAll());
         </div>
       </div>
 
-      <!-- Data Sync (placeholder) -->
+      <!-- Data Sync -->
       <div class="admin-subsection" id="admin-sub-sync" style="display:none">
         <div class="admin-section-title"><i class="bi bi-arrow-repeat"></i> Data Sync</div>
-        <div class="admin-card admin-card-placeholder">
-          <i class="bi bi-arrow-repeat"></i>
-          <h3>Data sync configuration coming up next</h3>
-          <p>Per-project sync history, campaign toggles and the auto-sync interval will live here once endpoints land.</p>
+        <div class="admin-card" style="margin-bottom:16px">
+          <div class="admin-card-head">
+            <h3><i class="bi bi-cloud-download"></i> KoboToolbox Sync</h3>
+            <button class="admin-btn admin-btn-primary" id="admSyncNowBtn2" onclick="admSyncNow()"><i class="bi bi-arrow-clockwise"></i> Sync Now</button>
+          </div>
+          <div class="admin-sync-grid">
+            <div class="admin-sync-cell"><div class="cell-lbl">Source</div><div class="cell-val" id="admSync-source">—</div></div>
+            <div class="admin-sync-cell"><div class="cell-lbl">Last Synced</div><div class="cell-val" id="admSync-last">—</div></div>
+            <div class="admin-sync-cell"><div class="cell-lbl">Household Records</div><div class="cell-val" id="admSync-rows">—</div></div>
+            <div class="admin-sync-cell"><div class="cell-lbl">API Token</div><div class="cell-val" id="admSync-token">—</div></div>
+          </div>
+          <div style="margin-top:12px;padding:10px 12px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;font-size:12px;color:#166534;line-height:1.6">
+            <strong>Source URL:</strong> <code id="admSync-url" style="font-size:11px;background:#fff;padding:2px 6px;border-radius:4px;color:var(--ink)">—</code>
+          </div>
+        </div>
+        <div class="admin-card">
+          <div class="admin-card-head">
+            <h3><i class="bi bi-clock-history"></i> Sync History</h3>
+            <span class="admin-count" id="admSyncHistoryCount">—</span>
+          </div>
+          <div class="admin-table-wrap">
+            <table class="admin-table">
+              <thead><tr><th>When</th><th>Actor</th><th>Details</th><th>IP</th></tr></thead>
+              <tbody id="admSyncHistoryBody"><tr><td colspan="4" class="admin-table-empty">Loading…</td></tr></tbody>
+            </table>
+          </div>
         </div>
       </div>
 
-      <!-- LGA Assignments (placeholder) -->
+      <!-- LGA Assignments -->
       <div class="admin-subsection" id="admin-sub-lga" style="display:none">
         <div class="admin-section-title"><i class="bi bi-geo-alt-fill"></i> LGA Assignments</div>
-        <div class="admin-card admin-card-placeholder">
-          <i class="bi bi-geo-alt-fill"></i>
-          <h3>LGA assignment matrix coming up next</h3>
-          <p>Per-validator LGA scope by project — the form + the assignment table go here.</p>
+        <div class="admin-card">
+          <div class="admin-card-head">
+            <h3>Validators &amp; their LGAs</h3>
+            <div style="display:flex;gap:10px;align-items:center">
+              <span class="admin-count" id="admLgaAssignCount">0</span>
+              <button class="admin-btn admin-btn-outline" onclick="admLoadLgaAssignments()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+            </div>
+          </div>
+          <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Assign or update LGA scope for each validator. Click <strong>Edit</strong> to toggle LGA chips. Only planned LGAs are shown.</p>
+          <div class="admin-table-wrap">
+            <table class="admin-table">
+              <thead><tr><th>Validator</th><th>Email</th><th>Assigned LGAs</th><th>Count</th><th>Actions</th></tr></thead>
+              <tbody id="admLgaAssignBody"><tr><td colspan="5" class="admin-table-empty">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Edit LGA Modal -->
+      <div class="admin-modal-overlay" id="admEditLgaModal" onclick="if(event.target===this)admCloseEditLga()">
+        <div class="admin-modal">
+          <div class="admin-modal-head">
+            <h3>Edit LGA Assignments</h3>
+            <button class="admin-modal-close" onclick="admCloseEditLga()"><i class="bi bi-x-lg"></i></button>
+          </div>
+          <div class="admin-field"><label>User</label><div id="admEditLgaUser" style="font-size:14px;color:var(--ink);font-weight:600"></div></div>
+          <div class="admin-field">
+            <label>LGAs <span style="color:var(--text-muted);font-weight:400;font-size:11px">(click to toggle)</span></label>
+            <div class="admin-chip-set" id="admEditLgaChips">Loading…</div>
+          </div>
+          <div id="admEditLgaErr" class="admin-err"></div>
+          <div class="admin-modal-actions">
+            <button type="button" class="admin-btn admin-btn-outline" onclick="admCloseEditLga()">Cancel</button>
+            <button type="button" class="admin-btn admin-btn-primary" onclick="admSaveEditLga()"><i class="bi bi-check-lg"></i> Save</button>
+          </div>
         </div>
       </div>
 
@@ -3844,6 +4271,10 @@ function showAdminPanel() {
   document.getElementById('adminPanelOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
   adminShowSubtab('overview');
+}
+function toggleAdminSidebar() {
+  const sb = document.getElementById('adminSidebar');
+  if (sb) sb.classList.toggle('collapsed');
 }
 function hideAdminPanel() {
   document.getElementById('adminPanelOverlay').classList.remove('open');

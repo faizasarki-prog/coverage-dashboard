@@ -21,3 +21,14 @@ ENABLE_DOCS: bool = os.environ.get("ENABLE_DOCS", "false").lower() in ("1", "tru
 
 ACCESS_TOKEN_TTL_SECONDS: int = 8 * 60 * 60
 JWT_ALGORITHM: str = "HS256"
+
+# Kobo data source — projects fetched via API instead of a local Excel file.
+# Each entry: {"name": "Sokoto Coverage", "url": "...", "cache": "sokoto.xlsx"}.
+# For now a single project is configured via env; more can be added as the
+# programme expands to other states.
+KOBO_API_TOKEN: str = os.environ.get("KOBO_API_TOKEN", "").strip()
+KOBO_DATA_URL: str = os.environ.get(
+    "KOBO_DATA_URL",
+    "https://kf.kobotoolbox.org/api/v2/assets/aC7agtm3my3Rfq4m4kYaF7/export-settings/esq4pbxk8MMWxBoGSPq5yMu/data.xlsx",
+).strip()
+KOBO_REFRESH_MINUTES: int = int(os.environ.get("KOBO_REFRESH_MINUTES", "60"))

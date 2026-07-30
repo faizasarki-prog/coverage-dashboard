@@ -1,5 +1,6 @@
 import sys
-from datetime import datetime
+import urllib.request
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +18,7 @@ from data_processor import (  # noqa: E402
     COL_WARD,
     load_all_data,
 )
+from . import settings  # noqa: E402
 
 DATA_PATH: Path = _REPO_ROOT / "Coverage data.xlsx"
 COMMUNITY_MAP_PATH: Path = _REPO_ROOT / "dat.csv"
@@ -26,12 +28,46 @@ child_info: pd.DataFrame | None = None
 child_eligible: pd.DataFrame | None = None
 community_map: dict[str, dict[str, Any]] = {}
 data_loaded_at: str | None = None
+data_source: str = "unknown"
 _loaded: bool = False
+_last_fetched_at: datetime | None = None
 
 
-def load_data() -> None:
-    global cov, child_info, child_eligible, community_map, data_loaded_at, _loaded
+def _fetch_kobo_xlsx() -> bool:
+    """Download the Kobo export to DATA_PATH. Returns True on success."""
+    global _last_fetched_at
+    url = settings.KOBO_DATA_URL
+    if not url:
+        return False
+    token = settings.KOBO_API_TOKEN
+    req = urllib.request.Request(url)
+    if token:
+        req.add_header("Authorization", f"Token {token}")
+    try:
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            content = resp.read()
+        if len(content) < 1024:
+            return False
+        DATA_PATH.write_bytes(content)
+        _last_fetched_at = datetime.now()
+        return True
+    except Exception as e:
+        print(f"[kobo] fetch failed: {e}")
+        return False
+
+
+def load_data(force_refresh: bool = False) -> None:
+    global cov, child_info, child_eligible, community_map, data_loaded_at, _loaded, data_source
+    if force_refresh:
+        _loaded = False
+
     if not _loaded:
+        if not settings.KOBO_DATA_URL:
+            raise RuntimeError("KOBO_DATA_URL is not configured. Set it via env var — Kobo API is the sole data source.")
+        fetched = _fetch_kobo_xlsx()
+        if not fetched:
+            raise RuntimeError("Kobo API fetch failed. No local fallback is permitted — check KOBO_DATA_URL / KOBO_API_TOKEN and network access.")
+        data_source = "kobo_api"
         cov, child_info, child_eligible = load_all_data()
         _loaded = True
         data_loaded_at = datetime.now().strftime("%d %b %Y, %H:%M")

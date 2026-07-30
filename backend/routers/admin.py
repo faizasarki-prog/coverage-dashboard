@@ -62,6 +62,25 @@ def create_user(payload: UserCreate, request: Request, db: Session = Depends(get
     }
 
 
+class LgaUpdate(BaseModel):
+    lgas: list[str] = []
+
+
+@router.put("/api/users/{user_id}/lgas")
+def update_user_lgas(user_id: int, payload: LgaUpdate, request: Request, db: Session = Depends(get_db)) -> dict:
+    u = db.query(User).filter(User.id == user_id).first()
+    if not u:
+        raise HTTPException(status_code=404, detail="User not found")
+    db.query(UserLGA).filter(UserLGA.user_id == user_id).delete()
+    for lga in payload.lgas or []:
+        lga = str(lga).strip()
+        if lga:
+            db.add(UserLGA(user_id=user_id, lga_name=lga))
+    db.commit()
+    _audit(db, None, "user.lgas_update", f"user={u.email} lgas={payload.lgas}", request)
+    return {"user_id": user_id, "lgas": payload.lgas or []}
+
+
 @router.delete("/api/users/{user_id}", status_code=204)
 def delete_user(user_id: int, request: Request, db: Session = Depends(get_db)) -> None:
     u = db.query(User).filter(User.id == user_id).first()

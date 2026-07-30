@@ -134,6 +134,16 @@ class GpsPoint(Base):
     settlement_match = Column(Boolean, default=False, nullable=False)
 
 
+class ValidationDecision(Base):
+    __tablename__ = "validation_decisions"
+    id = Column(Integer, primary_key=True)
+    record_uuid = Column(String(128), unique=True, index=True, nullable=False)
+    status = Column(String(20), nullable=False)  # 'approved' | 'rejected'
+    note = Column(Text, nullable=True)
+    decided_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    decided_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
 class AppSetting(Base):
     __tablename__ = "app_settings"
     id = Column(Integer, primary_key=True)
@@ -229,9 +239,22 @@ def _seed_super_admin(db: Session, roles: dict[str, Role]) -> None:
     db.commit()
 
 
+def _seed_default_project(db: Session) -> None:
+    existing = db.query(Project).filter(Project.name == "Sokoto Coverage").one_or_none()
+    if existing:
+        return
+    db.add(Project(
+        name="Sokoto Coverage",
+        description="SARMAAN II Mass Drug Administration — Sokoto State, Round 3. Data source: KoboToolbox API.",
+        is_active=True,
+    ))
+    db.commit()
+
+
 def init_db() -> None:
     Base.metadata.create_all(bind=engine)
     _run_sqlite_migrations()
     with SessionLocal() as db:
         roles = _seed_roles_and_permissions(db)
         _seed_super_admin(db, roles)
+        _seed_default_project(db)
