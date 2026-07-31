@@ -83,6 +83,21 @@ body.sidebar-collapsed .sidebar-toggle .bi { transform: rotate(180deg); }
 .nav-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: 0.6; flex-shrink: 0; }
 .nav-item .label { overflow: hidden; }
 .sidebar.collapsed .nav-item .label { display: none; }
+.project-switcher { position: relative; margin: 4px 10px 10px; }
+.proj-sw-trigger { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; background: rgba(127,194,155,.10); border: 1px solid rgba(127,194,155,.20); border-radius: 10px; color: #E8F5EE; cursor: pointer; transition: all .15s ease; font-family: inherit; }
+.proj-sw-trigger:hover { background: rgba(127,194,155,.18); }
+.proj-sw-trigger > i:first-child { font-size: 16px; color: #86EFAC; }
+.proj-sw-info { flex: 1; min-width: 0; text-align: left; }
+.proj-sw-lbl { font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.10em; color: #7FC29B; }
+.proj-sw-name { font-size: 12.5px; font-weight: 600; color: #fff; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.proj-sw-chev { font-size: 11px; color: #7FC29B; transition: transform .15s ease; }
+.proj-sw-menu { position: absolute; top: 100%; left: 0; right: 0; margin-top: 6px; background: #22432E; border: 1px solid rgba(127,194,155,.20); border-radius: 10px; padding: 4px; display: none; z-index: 200; max-height: 280px; overflow-y: auto; box-shadow: 0 8px 24px rgba(0,0,0,.35); }
+.proj-sw-menu.open { display: block; }
+.proj-sw-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; border-radius: 6px; color: #E8F5EE; cursor: pointer; transition: background .12s ease; }
+.proj-sw-item:hover { background: rgba(127,194,155,.15); }
+.proj-sw-item.active { background: rgba(127,194,155,.10); }
+.sidebar.collapsed .project-switcher .proj-sw-info, .sidebar.collapsed .project-switcher .proj-sw-chev { display: none; }
+.sidebar.collapsed .project-switcher .proj-sw-trigger { justify-content: center; padding: 10px; }
 .sidebar-user { display: flex; align-items: center; gap: 10px; padding: 12px 14px; margin: 6px 10px; background: rgba(255,255,255,.06); border-radius: 10px; border: 1px solid rgba(255,255,255,.08); }
 .su-avatar { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(160deg, #22C55E, #0F5132); color: #fff; font-weight: 700; font-size: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; text-transform: uppercase; }
 .su-info { flex: 1; min-width: 0; }
@@ -759,6 +774,17 @@ body.filter-open .chat-fab, body.filter-open .chat-panel { display: none !import
         <h2>SARMAAN II</h2>
         <p class="sidebar-brand-subtitle">Coverage Survey Dashboard</p>
       </div>
+    </div>
+    <div id="projectSwitcher" class="project-switcher" style="display:none">
+      <button class="proj-sw-trigger" onclick="_toggleProjectSwitcher()">
+        <i class="bi bi-collection-fill"></i>
+        <div class="proj-sw-info">
+          <div class="proj-sw-lbl">ACTIVE PROJECT</div>
+          <div class="proj-sw-name" id="projectSwitcherLabel">—</div>
+        </div>
+        <i class="bi bi-chevron-down proj-sw-chev"></i>
+      </button>
+      <div class="proj-sw-menu" id="projectSwitcherMenu"></div>
     </div>
     <nav class="sidebar-nav">
       <div class="nav-group">
@@ -2531,25 +2557,141 @@ async function admDeleteUser(id, email) {
 
 async function adminLoadProjects() {
   const body = document.getElementById('admProjectsBody');
-  body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:16px">Loading…</td></tr>';
+  body.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:16px">Loading…</td></tr>';
   try {
     const projects = await adminApi('/api/projects');
+    document.getElementById('admProjectsCount').textContent = projects.length;
     if (!projects.length) {
-      body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:16px">No projects configured yet.</td></tr>';
+      body.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:16px">No projects yet. Click <strong>New Project</strong> to add one.</td></tr>';
       return;
     }
-    body.innerHTML = projects.map(p => `<tr>
-      <td>${p.id}</td>
-      <td>${_esc(p.name)}</td>
-      <td>${_esc(p.description || '—')}</td>
-      <td>${_statusPill(p.is_active)}</td>
-      <td>${_fmtDate(p.created_at)}</td>
-    </tr>`).join('');
+    body.innerHTML = projects.map(p => {
+      const kobo = p.kobo_api_url ? `<span title="${_esc(p.kobo_api_url)}" style="color:#166534">● configured</span>` : '<span style="color:var(--text-muted)">—</span>';
+      const plan = p.planning_file ? `<span style="color:#166534" title="${_esc(p.planning_file)}"><i class="bi bi-file-earmark-spreadsheet"></i></span>` : '<span style="color:var(--text-muted)">—</span>';
+      const geo  = p.geospatial_zip ? `<span style="color:#166534" title="${_esc(p.geospatial_zip)}"><i class="bi bi-map"></i></span>` : '<span style="color:var(--text-muted)">—</span>';
+      const lgas = (p.planned_lgas || []).length ? `<span style="font-size:11px">${(p.planned_lgas || []).slice(0,3).map(l => _esc(l)).join(', ')}${p.planned_lgas.length > 3 ? ' +' + (p.planned_lgas.length - 3) : ''}</span>` : '<span style="color:var(--text-muted)">—</span>';
+      const status = p.is_default ? '<span class="admin-role-pill" style="background:#DCFCE7;color:#166534">● ACTIVE</span>' : _statusPill(p.is_active);
+      return `<tr>
+        <td><strong>${_esc(p.name)}</strong><div style="font-size:11px;color:var(--text-muted)">${_esc(p.description || '')}</div></td>
+        <td>${_esc(p.state || '—')}</td>
+        <td>${kobo}</td>
+        <td style="text-align:center">${plan}</td>
+        <td style="text-align:center">${geo}</td>
+        <td>${lgas}</td>
+        <td>${status}</td>
+        <td><div style="display:flex;gap:4px">
+          ${p.is_default ? '' : `<button class="admin-btn admin-btn-outline" style="padding:4px 8px;font-size:11px" onclick="admActivateProject(${p.id})" title="Set active">Activate</button>`}
+          ${p.is_default ? '' : `<button class="val-icon-btn reject" style="padding:4px 8px" onclick="admDeleteProject(${p.id}, '${_esc(p.name).replace(/'/g,"\\'")}')" title="Delete"><i class="bi bi-trash"></i></button>`}
+        </div></td>
+      </tr>`;
+    }).join('');
   } catch (e) {
-    body.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--red);padding:16px">${_esc(e.message)}</td></tr>`;
+    body.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--red);padding:16px">${_esc(e.message)}</td></tr>`;
   }
   admLoadDataStatus();
 }
+
+function admOpenCreateProject() {
+  document.getElementById('admCreateProjectForm').reset();
+  document.getElementById('admProjErr').style.display = 'none';
+  document.getElementById('admCreateProjectModal').classList.add('open');
+}
+function admCloseCreateProject() { document.getElementById('admCreateProjectModal').classList.remove('open'); }
+
+async function admSubmitCreateProject(ev) {
+  ev.preventDefault();
+  const err = document.getElementById('admProjErr');
+  const btn = document.getElementById('admProjSubmitBtn');
+  err.style.display = 'none';
+  btn.disabled = true; btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Creating…';
+  try {
+    const fd = new FormData();
+    fd.append('name', document.getElementById('admProjName').value.trim());
+    fd.append('state', document.getElementById('admProjState').value.trim());
+    fd.append('description', document.getElementById('admProjDesc').value.trim());
+    fd.append('kobo_api_url', document.getElementById('admProjKoboUrl').value.trim());
+    fd.append('kobo_api_token', document.getElementById('admProjKoboToken').value.trim());
+    fd.append('planned_lgas', document.getElementById('admProjLgas').value.trim());
+    fd.append('is_default', document.getElementById('admProjDefault').checked ? 'true' : 'false');
+    const plan = document.getElementById('admProjPlanFile').files[0];
+    const geo  = document.getElementById('admProjGeoZip').files[0];
+    if (plan) fd.append('planning_file', plan);
+    if (geo)  fd.append('geospatial_zip', geo);
+    const res = await fetch('/api/projects', { method: 'POST', body: fd });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.detail || 'Create failed');
+    admCloseCreateProject();
+    adminLoadProjects();
+    _loadProjectSwitcher();
+    toast(`Project "${d.name}" created.`);
+  } catch (e) { err.textContent = e.message; err.style.display = 'block'; }
+  finally { btn.disabled = false; btn.innerHTML = '<i class="bi bi-check-lg"></i> Create Project'; }
+  return false;
+}
+
+async function admActivateProject(id) {
+  try {
+    const r = await fetch(`/api/projects/${id}/activate`, { method: 'POST' });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || 'Failed');
+    toast(`"${d.name}" is now the active project.`);
+    adminLoadProjects();
+    _loadProjectSwitcher();
+  } catch (e) { toast('Error: ' + e.message, true); }
+}
+async function admDeleteProject(id, name) {
+  if (!confirm(`Delete project "${name}"? Uploaded files will be removed.`)) return;
+  try {
+    const r = await fetch(`/api/projects/${id}`, { method: 'DELETE' });
+    if (!r.ok && r.status !== 204) { const d = await r.json().catch(()=>({})); throw new Error(d.detail || 'Delete failed'); }
+    toast(`Deleted "${name}".`);
+    adminLoadProjects();
+    _loadProjectSwitcher();
+  } catch (e) { toast('Error: ' + e.message, true); }
+}
+
+async function _loadProjectSwitcher() {
+  const wrap = document.getElementById('projectSwitcher');
+  if (!wrap) return;
+  try {
+    const projects = await api('/api/projects');
+    const active = projects.find(p => p.is_default) || projects[0];
+    if (!active) { wrap.style.display = 'none'; return; }
+    const label = document.getElementById('projectSwitcherLabel');
+    if (label) label.textContent = active.name;
+    const menu = document.getElementById('projectSwitcherMenu');
+    if (menu) {
+      menu.innerHTML = projects.map(p => `
+        <div class="proj-sw-item ${p.is_default ? 'active' : ''}" onclick="_switchProject(${p.id})">
+          <div>
+            <div style="font-weight:600">${_esc(p.name)}</div>
+            <div style="font-size:11px;color:rgba(255,255,255,.55)">${_esc(p.state || '')}</div>
+          </div>
+          ${p.is_default ? '<i class="bi bi-check-lg" style="color:#86EFAC"></i>' : ''}
+        </div>`).join('');
+    }
+    wrap.style.display = 'block';
+  } catch (e) { wrap.style.display = 'none'; }
+}
+async function _switchProject(id) {
+  try {
+    const r = await fetch(`/api/projects/${id}/activate`, { method: 'POST' });
+    if (!r.ok) throw new Error('Switch failed');
+    const d = await r.json();
+    toast(`Switched to "${d.name}". Refreshing…`);
+    setTimeout(() => window.location.reload(), 700);
+  } catch (e) { toast('Error: ' + e.message, true); }
+}
+function _toggleProjectSwitcher() {
+  const menu = document.getElementById('projectSwitcherMenu');
+  if (menu) menu.classList.toggle('open');
+}
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#projectSwitcher')) {
+    const menu = document.getElementById('projectSwitcherMenu');
+    if (menu) menu.classList.remove('open');
+  }
+});
 
 async function admLoadDataStatus() {
   const badge = document.getElementById('admDataSourceBadge');
@@ -3985,7 +4127,7 @@ function signOut() {
 }
 
 initTheme();
-document.addEventListener('DOMContentLoaded', () => loadAll());
+document.addEventListener('DOMContentLoaded', () => { loadAll(); _loadProjectSwitcher(); });
 </script>
 
 <!-- ── Admin Panel Overlay ─────────────────────────────────── -->
@@ -4144,14 +4286,47 @@ document.addEventListener('DOMContentLoaded', () => loadAll());
         <div class="admin-card">
           <div class="admin-card-head">
             <h3>All Projects</h3>
-            <span class="admin-count" id="admProjectsCount">0</span>
+            <div style="display:flex;gap:10px;align-items:center">
+              <span class="admin-count" id="admProjectsCount">0</span>
+              <button class="admin-btn admin-btn-primary" onclick="admOpenCreateProject()"><i class="bi bi-plus-lg"></i> New Project</button>
+            </div>
           </div>
           <div class="admin-table-wrap">
             <table class="admin-table">
-              <thead><tr><th>ID</th><th>Name</th><th>Description</th><th>Status</th><th>Created</th></tr></thead>
-              <tbody id="admProjectsBody"><tr><td colspan="5" class="admin-table-empty">Loading…</td></tr></tbody>
+              <thead><tr><th>Name</th><th>State</th><th>Kobo</th><th>Planning</th><th>Geospatial</th><th>Planned LGAs</th><th>Status</th><th>Actions</th></tr></thead>
+              <tbody id="admProjectsBody"><tr><td colspan="8" class="admin-table-empty">Loading…</td></tr></tbody>
             </table>
           </div>
+        </div>
+      </div>
+
+      <!-- Create Project Modal -->
+      <div class="admin-modal-overlay" id="admCreateProjectModal" onclick="if(event.target===this)admCloseCreateProject()">
+        <div class="admin-modal" style="max-width:560px">
+          <div class="admin-modal-head">
+            <h3>New Project</h3>
+            <button class="admin-modal-close" onclick="admCloseCreateProject()"><i class="bi bi-x-lg"></i></button>
+          </div>
+          <form id="admCreateProjectForm" onsubmit="return admSubmitCreateProject(event)" enctype="multipart/form-data">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+              <div class="admin-field"><label>Project Name *</label><input type="text" id="admProjName" required placeholder="e.g. Kano Coverage" /></div>
+              <div class="admin-field"><label>State *</label><input type="text" id="admProjState" required placeholder="e.g. Kano" /></div>
+            </div>
+            <div class="admin-field"><label>Description</label><input type="text" id="admProjDesc" placeholder="Optional short description" /></div>
+            <div class="admin-field"><label>Kobo Export URL *</label><input type="url" id="admProjKoboUrl" required placeholder="https://kf.kobotoolbox.org/api/v2/assets/..." /></div>
+            <div class="admin-field"><label>Kobo API Token <span style="color:var(--text-muted);font-size:11px">(optional for public exports)</span></label><input type="text" id="admProjKoboToken" placeholder="Bearer token if the export is private" /></div>
+            <div class="admin-field"><label>Planned LGAs <span style="color:var(--text-muted);font-size:11px">(comma-separated)</span></label><input type="text" id="admProjLgas" placeholder="e.g. Ajingi, Bebeji, Bichi" /></div>
+            <div class="admin-field"><label>Planning File <span style="color:var(--text-muted);font-size:11px">(.xlsx / .csv)</span></label><input type="file" id="admProjPlanFile" accept=".xlsx,.xls,.csv" /></div>
+            <div class="admin-field"><label>Geospatial ZIP <span style="color:var(--text-muted);font-size:11px">(.zip containing LGA / ward / settlement shapefiles)</span></label><input type="file" id="admProjGeoZip" accept=".zip,.geojson,.json" /></div>
+            <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink);margin-bottom:12px">
+              <input type="checkbox" id="admProjDefault" /> Set as the active project (shows on the landing page)
+            </label>
+            <div id="admProjErr" class="admin-err"></div>
+            <div class="admin-modal-actions">
+              <button type="button" class="admin-btn admin-btn-outline" onclick="admCloseCreateProject()">Cancel</button>
+              <button type="submit" class="admin-btn admin-btn-primary" id="admProjSubmitBtn"><i class="bi bi-check-lg"></i> Create Project</button>
+            </div>
+          </form>
         </div>
       </div>
 

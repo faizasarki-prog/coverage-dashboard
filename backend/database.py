@@ -82,6 +82,15 @@ class Project(Base):
     name = Column(String(200), unique=True, nullable=False)
     description = Column(Text, nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
+    is_default = Column(Boolean, default=False, nullable=False)
+    state = Column(String(80), nullable=True)
+    kobo_api_url = Column(Text, nullable=True)
+    kobo_api_token = Column(Text, nullable=True)
+    planning_file_path = Column(Text, nullable=True)
+    geospatial_zip_path = Column(Text, nullable=True)
+    planned_lgas = Column(Text, nullable=True)
+    last_synced_at = Column(DateTime, nullable=True)
+    last_sync_rows = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
@@ -181,6 +190,15 @@ def _run_sqlite_migrations() -> None:
         ("users", "invite_token", "VARCHAR(128)"),
         ("users", "invite_expires_at", "DATETIME"),
         ("users", "active_project_id", "INTEGER"),
+        ("projects", "is_default", "BOOLEAN NOT NULL DEFAULT 0"),
+        ("projects", "state", "VARCHAR(80)"),
+        ("projects", "kobo_api_url", "TEXT"),
+        ("projects", "kobo_api_token", "TEXT"),
+        ("projects", "planning_file_path", "TEXT"),
+        ("projects", "geospatial_zip_path", "TEXT"),
+        ("projects", "planned_lgas", "TEXT"),
+        ("projects", "last_synced_at", "DATETIME"),
+        ("projects", "last_sync_rows", "INTEGER"),
     ]
     with engine.begin() as conn:
         for table, col, ddl in additions:
@@ -242,11 +260,19 @@ def _seed_super_admin(db: Session, roles: dict[str, Role]) -> None:
 def _seed_default_project(db: Session) -> None:
     existing = db.query(Project).filter(Project.name == "Sokoto Coverage").one_or_none()
     if existing:
+        if not existing.is_default and not db.query(Project).filter(Project.is_default == True).first():  # noqa: E712
+            existing.is_default = True
+            db.commit()
         return
     db.add(Project(
         name="Sokoto Coverage",
-        description="SARMAAN II Mass Drug Administration — Sokoto State, Round 3. Data source: KoboToolbox API.",
+        description="SARMAAN II Mass Drug Administration — Sokoto State, Round 3.",
+        state="Sokoto",
+        kobo_api_url=settings.KOBO_DATA_URL,
+        kobo_api_token=settings.KOBO_API_TOKEN,
+        planned_lgas="Kware,Rabah,Tureta,Wamakko,Wurno,Yabo",
         is_active=True,
+        is_default=True,
     ))
     db.commit()
 

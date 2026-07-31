@@ -1,9 +1,15 @@
-from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
+from datetime import datetime
+from pathlib import Path
+
+from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 
 from ..auth import generate_invite_token, hash_password
 from ..database import AuditLog, Project, Role, User, UserLGA, get_db
+
+PROJECT_UPLOADS_DIR: Path = Path(__file__).resolve().parent.parent.parent / "data" / "project_uploads"
+PROJECT_UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
 router = APIRouter()
 
@@ -116,17 +122,150 @@ def list_users(db: Session = Depends(get_db)) -> list[dict]:
     return out
 
 
-@router.get("/api/projects")
-def list_projects(db: Session = Depends(get_db)) -> list[dict]:
-    projects = db.query(Project).order_by(Project.id.asc()).all()
-    return [{
+def _project_to_dict(p: Project) -> dict:
+    return {
         "id": p.id,
         "name": p.name,
         "description": p.description,
+        "state": p.state,
         "is_active": p.is_active,
+        "is_default": bool(p.is_default),
+        "kobo_api_url": p.kobo_api_url,
+        "has_kobo_token": bool(p.kobo_api_token),
+        "planning_file": Path(p.planning_file_path).name if p.planning_file_path else None,
+        "geospatial_zip": Path(p.geospatial_zip_path).name if p.geospatial_zip_path else None,
+        "planned_lgas": [x.strip() for x in (p.planned_lgas or "").split(",") if x.strip()],
+        "last_synced_at": p.last_synced_at.isoformat() if p.last_synced_at else None,
+        "last_sync_rows": p.last_sync_rows,
         "created_at": p.created_at.isoformat() if p.created_at else None,
         "user_access_active": True,
-    } for p in projects]
+    }
+
+
+@router.get("/api/projects")
+def list_projects(db: Session = Depends(get_db)) -> list[dict]:
+    projects = db.query(Project).order_by(Project.id.asc()).all()
+    return [_project_to_dict(p) for p in projects]
+
+
+@router.get("/api/projects/active")
+def active_project(db: Session = Depends(get_db)) -> dict:
+    p = db.query(Project).filter(Project.is_default == True).first()  # noqa: E712
+    if not p:
+        p = db.query(Project).order_by(Project.id.asc()).first()
+    if not p:
+        raise HTTPException(status_code=404, detail="No projects configured")
+    return _project_to_dict(p)
+
+
+def _save_upload(file: UploadFile, project_id: int, suffix: str) -> str:
+    if not file or not file.filename:
+        return None
+    safe_name = Path(file.filename).name
+    dst = PROJECT_UPLOADS_DIR / f"p{project_id}_{suffix}_{safe_name}"
+    with dst.open("wb") as f:
+        while True:
+            chunk = file.file.read(1024 * 1024)
+            if not chunk:
+                break
+            f.write(chunk)
+    return str(dst)
+
+
+@router.post("/api/projects", status_code=201)
+async def create_project(
+    request: Request,
+    name: str = Form(...),
+    state: str = Form(...),
+    kobo_api_url: str = Form(""),
+    kobo_api_token: str = Form(""),
+    planned_lgas: str = Form(""),
+    description: str = Form(""),
+    is_default: bool = Form(False),
+    planning_file: UploadFile | None = File(None),
+    geospatial_zip: UploadFile | None = File(None),
+    db: Session = Depends(get_db),
+) -> dict:
+    name = name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Project name is required")
+    if db.query(Project).filter(Project.name == name).first():
+        raise HTTPException(status_code=409, detail=f"Project '{name}' already exists")
+    p = Project(
+        name=name,
+        state=state.strip() or None,
+        description=description.strip() or None,
+        kobo_api_url=kobo_api_url.strip() or None,
+        kobo_api_token=kobo_api_token.strip() or None,
+        planned_lgas=planned_lgas.strip() or None,
+        is_active=True,
+        is_default=False,
+    )
+    db.add(p)
+    db.flush()
+    if planning_file and planning_file.filename:
+        p.planning_file_path = _save_upload(planning_file, p.id, "plan")
+    if geospatial_zip and geospatial_zip.filename:
+        p.geospatial_zip_path = _save_upload(geospatial_zip, p.id, "geo")
+    if is_default:
+        db.query(Project).update({Project.is_default: False})
+        p.is_default = True
+    db.commit()
+    _audit(db, None, "project.create", f"name={name} state={state}", request)
+    return _project_to_dict(p)
+
+
+@router.post("/api/projects/{project_id}/upload")
+async def upload_project_files(
+    project_id: int,
+    request: Request,
+    planning_file: UploadFile | None = File(None),
+    geospatial_zip: UploadFile | None = File(None),
+    db: Session = Depends(get_db),
+) -> dict:
+    p = db.query(Project).filter(Project.id == project_id).first()
+    if not p:
+        raise HTTPException(status_code=404, detail="Project not found")
+    changes = []
+    if planning_file and planning_file.filename:
+        p.planning_file_path = _save_upload(planning_file, p.id, "plan")
+        changes.append("planning")
+    if geospatial_zip and geospatial_zip.filename:
+        p.geospatial_zip_path = _save_upload(geospatial_zip, p.id, "geo")
+        changes.append("geospatial")
+    db.commit()
+    _audit(db, None, "project.upload", f"project={p.name} files={','.join(changes)}", request)
+    return _project_to_dict(p)
+
+
+@router.post("/api/projects/{project_id}/activate")
+def activate_project(project_id: int, request: Request, db: Session = Depends(get_db)) -> dict:
+    p = db.query(Project).filter(Project.id == project_id).first()
+    if not p:
+        raise HTTPException(status_code=404, detail="Project not found")
+    db.query(Project).update({Project.is_default: False})
+    p.is_default = True
+    db.commit()
+    _audit(db, None, "project.activate", f"project={p.name}", request)
+    return _project_to_dict(p)
+
+
+@router.delete("/api/projects/{project_id}", status_code=204)
+def delete_project(project_id: int, request: Request, db: Session = Depends(get_db)) -> None:
+    p = db.query(Project).filter(Project.id == project_id).first()
+    if not p:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if p.is_default:
+        raise HTTPException(status_code=400, detail="Cannot delete the active project; activate another first")
+    for path_attr in ("planning_file_path", "geospatial_zip_path"):
+        fp = getattr(p, path_attr, None)
+        if fp:
+            try: Path(fp).unlink(missing_ok=True)
+            except Exception: pass
+    name = p.name
+    db.delete(p)
+    db.commit()
+    _audit(db, None, "project.delete", f"project={name}", request)
 
 
 @router.get("/api/audit-log")
