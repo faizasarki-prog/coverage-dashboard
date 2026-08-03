@@ -26,6 +26,7 @@ class UserCreate(BaseModel):
     role: str
     password: str | None = None
     lgas: list[str] = []
+    project_ids: list[int] = []
 
 
 @router.post("/api/users", status_code=201)
@@ -59,6 +60,10 @@ def create_user(payload: UserCreate, request: Request, db: Session = Depends(get
         lga = str(lga).strip()
         if lga:
             db.add(UserLGA(user_id=u.id, lga_name=lga))
+    for pid in payload.project_ids or []:
+        proj = db.query(Project).filter(Project.id == int(pid)).first()
+        if proj:
+            u.projects.append(proj)
     db.commit()
     _audit(db, None, "user.create", f"created user {email} with role {payload.role}, {len(payload.lgas or [])} LGA(s)", request)
     return {
@@ -100,8 +105,13 @@ def delete_user(user_id: int, request: Request, db: Session = Depends(get_db)) -
 
 
 @router.get("/api/users")
-def list_users(db: Session = Depends(get_db)) -> list[dict]:
-    users = db.query(User).order_by(User.created_at.desc()).all()
+def list_users(project_id: int | None = None, db: Session = Depends(get_db)) -> list[dict]:
+    q = db.query(User).order_by(User.created_at.desc())
+    if project_id:
+        proj = db.query(Project).filter(Project.id == project_id).first()
+        if proj:
+            q = q.filter(User.projects.any(Project.id == project_id))
+    users = q.all()
     out: list[dict] = []
     for u in users:
         role_name = u.role.name if u.role else None

@@ -128,6 +128,11 @@ def geo_points() -> list[dict]:
     return geospatial.all_points()
 
 
+@app.get("/api/geo/issues-by-ra")
+def geo_issues_by_ra() -> list[dict]:
+    return geospatial.issues_by_ra()
+
+
 @app.get("/api/data/status")
 def data_status() -> dict:
     return {

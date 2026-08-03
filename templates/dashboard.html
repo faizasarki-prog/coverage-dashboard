@@ -397,6 +397,12 @@ body.sidebar-collapsed .sidebar-toggle .bi { transform: rotate(180deg); }
 #page-validators .val-tab.active .val-tab-badge { background: var(--olive); color: #fff; }
 .val-qc-active { display: inline-block; padding: 3px 10px; border-radius: 12px; background: #DCFCE7; color: #166534; font-size: 10.5px; font-weight: 700; }
 .val-qc-inactive { display: inline-block; padding: 3px 10px; border-radius: 12px; background: #FEF3C7; color: #B45309; font-size: 10.5px; font-weight: 700; }
+.usr-proj-tabs { display: flex; gap: 4px; padding: 4px 0 0; margin-bottom: 12px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.usr-proj-tab { background: transparent; border: 0; border-bottom: 2px solid transparent; padding: 10px 14px; font-size: 13px; font-weight: 500; color: var(--text-muted); cursor: pointer; font-family: inherit; transition: color .15s ease, border-color .15s ease; margin-bottom: -1px; }
+.usr-proj-tab:hover { color: var(--ink); }
+.usr-proj-tab.active { color: var(--olive); border-bottom-color: var(--olive); font-weight: 600; }
+.ra-issue-cell { transition: transform .12s ease, filter .12s ease; }
+.ra-issue-cell:hover { transform: translateY(-1px); filter: brightness(0.92); }
 #page-validators .val-flags-panel { flex: 1; display: flex; flex-direction: column; min-height: 0; min-width: 0; overflow: hidden; padding: 10px 12px 12px; max-width: 100%; }
 #page-validators .val-flags-panel .panel-head { flex-shrink: 0; margin-bottom: 8px; }
 #page-validators .val-table-wrap { flex: 1; overflow-x: auto; overflow-y: auto; min-height: 0; min-width: 0; width: 100%; max-width: 100%; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
@@ -1612,6 +1618,35 @@ body.filter-open .chat-fab, body.filter-open .chat-panel { display: none !import
             </div>
           </div>
         </div>
+
+        <!-- Issues by Research Assistant -->
+        <div class="panel" style="margin-top:16px">
+          <div class="panel-head">
+            <div>
+              <h3><i class="bi bi-person-vcard-fill"></i> Issues by Research Assistant</h3>
+              <div class="sub">Every GPS submission tied to the enumerator who captured it, with a breakdown of geospatial issues. Click <strong>View on Map</strong> to jump to that RA's flagged points.</div>
+            </div>
+            <div>
+              <span class="admin-count" id="raIssuesCount">0 RA(s)</span>
+              <button class="btn-dl-csv" onclick="downloadTableCSV('raIssuesTable','issues_by_ra')" title="Download CSV"><i class="bi bi-download"></i> CSV</button>
+            </div>
+          </div>
+          <div class="table-wrapper" style="max-height:420px;overflow:auto">
+            <table id="raIssuesTable" class="admin-table" style="font-size:12px">
+              <thead style="position:sticky;top:0;background:#F9FBF9;z-index:2"><tr>
+                <th>Research Assistant</th>
+                <th style="text-align:right">Total Points</th>
+                <th style="text-align:right">Total Issues</th>
+                <th style="text-align:right">Out LGA</th>
+                <th style="text-align:right">Out Ward</th>
+                <th style="text-align:right">Out Settlement</th>
+                <th style="text-align:right">Duplicates</th>
+                <th style="text-align:center">Actions</th>
+              </tr></thead>
+              <tbody id="raIssuesBody"><tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:20px">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
       </section>
 
       <!-- ═══ ADVANCED ANALYTICS ═══ -->
@@ -2445,12 +2480,38 @@ async function adminLoadOverview() {
 
 let _admLgaChosen = new Set();
 let _admLgaOptions = [];
+let _admProjChosen = new Set();
+let _admProjOptions = [];
+let _usrCurrentProject = 'all';
+
+function admShowSchemaSample() { document.getElementById('admSchemaModal').classList.add('open'); }
+function admHideSchemaSample() { document.getElementById('admSchemaModal').classList.remove('open'); }
+
+async function usrSetProject(key) {
+  _usrCurrentProject = key;
+  document.querySelectorAll('.usr-proj-tab').forEach(t => t.classList.toggle('active', t.dataset.proj === String(key)));
+  await adminLoadUsers();
+}
+async function _usrRenderTabs() {
+  const wrap = document.getElementById('usrProjTabs');
+  if (!wrap) return;
+  try {
+    const projects = await api('/api/projects');
+    const parts = [`<button class="usr-proj-tab ${_usrCurrentProject === 'all' ? 'active' : ''}" data-proj="all" onclick="usrSetProject('all')">All Users</button>`];
+    projects.forEach(p => {
+      parts.push(`<button class="usr-proj-tab ${_usrCurrentProject === String(p.id) ? 'active' : ''}" data-proj="${p.id}" onclick="usrSetProject('${p.id}')">${_esc(p.name)} Users</button>`);
+    });
+    wrap.innerHTML = parts.join('');
+  } catch (e) { /* silent */ }
+}
 
 async function adminLoadUsers() {
   const body = document.getElementById('admUsersBody');
   body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:16px">Loading…</td></tr>';
+  _usrRenderTabs();
   try {
-    const users = await adminApi('/api/users');
+    const qs = (_usrCurrentProject && _usrCurrentProject !== 'all') ? `?project_id=${_usrCurrentProject}` : '';
+    const users = await adminApi('/api/users' + qs);
     document.getElementById('admUsersCount').textContent = users.length;
     if (!users.length) {
       body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:16px">No users yet.</td></tr>';
@@ -2458,13 +2519,14 @@ async function adminLoadUsers() {
     }
     body.innerHTML = users.map(u => {
       const lgaLabel = (u.lgas || []).map(l => _esc(l)).join(', ') || '—';
+      const projLabel = (u.projects || []).map(p => _esc(p.name)).join(', ') || '<span style="color:var(--text-muted)">—</span>';
       return `<tr>
-        <td>${_esc(u.name)}</td>
+        <td><strong>${_esc(u.name)}</strong></td>
         <td>${_esc(u.email)}</td>
         <td>${_roleBadge(u.role)}</td>
+        <td style="font-size:11px">${projLabel}</td>
         <td style="font-size:11px;color:var(--text-muted)">${lgaLabel}</td>
         <td>${_statusPill(u.is_active)}</td>
-        <td>${_fmtDate(u.created_at)}</td>
         <td><button class="admin-btn admin-btn-outline" style="padding:4px 8px;font-size:11px" onclick="admDeleteUser(${u.id}, '${_esc(u.email).replace(/'/g,"\\'")}')"><i class="bi bi-trash"></i></button></td>
       </tr>`;
     }).join('');
@@ -2485,13 +2547,31 @@ async function admOpenCreateUser() {
   document.getElementById('admInviteBox').innerHTML = '';
   document.getElementById('admLgaRow').style.display = 'none';
   _admLgaChosen = new Set();
+  _admProjChosen = new Set();
   if (!_admLgaOptions.length) {
     try {
       const all = await api('/api/geo/lga-stats');
       _admLgaOptions = all.filter(r => r.is_planned).map(r => r.name);
     } catch (e) { _admLgaOptions = []; }
   }
+  try {
+    _admProjOptions = await api('/api/projects');
+  } catch (e) { _admProjOptions = []; }
   _admRenderChips();
+  _admRenderProjChips();
+}
+function _admRenderProjChips() {
+  const box = document.getElementById('admNewProjChips');
+  if (!box) return;
+  if (!_admProjOptions.length) { box.innerHTML = '<span style="color:var(--text-muted);font-size:12px">No projects yet.</span>'; return; }
+  box.innerHTML = _admProjOptions.map(p => {
+    const on = _admProjChosen.has(p.id);
+    return `<span class="admin-chip ${on ? 'active' : ''}" onclick="admToggleProjChip(${p.id})">${_esc(p.name)}</span>`;
+  }).join('');
+}
+function admToggleProjChip(id) {
+  if (_admProjChosen.has(id)) _admProjChosen.delete(id); else _admProjChosen.add(id);
+  _admRenderProjChips();
 }
 function admCloseCreateUser() {
   document.getElementById('admCreateUserModal').classList.remove('open');
@@ -2524,6 +2604,7 @@ async function admSubmitCreateUser(ev) {
     role: document.getElementById('admNewRole').value,
     password: document.getElementById('admNewPassword').value || null,
     lgas: document.getElementById('admNewRole').value === 'validator' ? [..._admLgaChosen] : [],
+    project_ids: [..._admProjChosen],
   };
   try {
     const res = await fetch('/api/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -3171,8 +3252,95 @@ async function loadGeospatial() {
     _geoAllGpsPoints = points || [];
     await renderGpsScatter(_geoAllGpsPoints);
     loadGeoLgaList();
+    loadIssuesByRa();
   } catch (e) { toast('Geospatial error: ' + e.message, true); }
   finally { hideLoading(); }
+}
+
+async function loadIssuesByRa() {
+  const body = document.getElementById('raIssuesBody');
+  const count = document.getElementById('raIssuesCount');
+  if (!body) return;
+  try {
+    const rows = await api('/api/geo/issues-by-ra');
+    if (count) count.textContent = `${rows.length} RA(s)`;
+    if (!rows.length) {
+      body.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#166534;padding:20px">✓ No geospatial issues detected across any RA</td></tr>';
+      return;
+    }
+    const clickable = (v, tone, ra, issueType) => {
+      if (!v) return '<td style="text-align:right;color:var(--text-muted)">0</td>';
+      const c = tone === 'red' ? '#B91C1C' : tone === 'amber' ? '#B45309' : '#166534';
+      const bg = tone === 'red' ? '#FEE2E2' : tone === 'amber' ? '#FEF3C7' : '#DCFCE7';
+      const safeRa = _esc(ra).replace(/'/g,"\\'");
+      return `<td style="text-align:right"><a class="ra-issue-cell" onclick="raViewSpecificIssue('${safeRa}', '${issueType}')" style="background:${bg};color:${c};padding:3px 10px;border-radius:12px;font-weight:700;font-size:11px;cursor:pointer;display:inline-block">${v}</a></td>`;
+    };
+    body.innerHTML = rows.map(r => {
+      const safeRa = _esc(r.ra).replace(/'/g,"\\'");
+      return `<tr>
+      <td><strong>${_esc(r.ra)}</strong></td>
+      <td style="text-align:right">${r.total_points}</td>
+      <td style="text-align:right"><a class="ra-issue-cell" onclick="raViewIssuesOnMap('${safeRa}')" style="background:#FEE2E2;color:#B91C1C;padding:3px 10px;border-radius:12px;font-weight:700;font-size:11px;cursor:pointer;display:inline-block" title="Show all issue points for this RA">${r.total_issues}</a></td>
+      ${clickable(r.out_lga, 'red', r.ra, 'out_lga')}
+      ${clickable(r.out_ward, 'amber', r.ra, 'out_ward')}
+      ${clickable(r.out_settlement, 'amber', r.ra, 'out_settlement')}
+      ${clickable(r.duplicates, 'amber', r.ra, 'duplicates')}
+      <td style="text-align:center">
+        <button class="admin-btn admin-btn-outline" style="padding:5px 10px;font-size:11px" onclick="raViewIssuesOnMap('${safeRa}')"><i class="bi bi-geo-alt"></i> All Issues</button>
+      </td>
+    </tr>`; }).join('');
+  } catch (e) {
+    body.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--red);padding:16px">${_esc(e.message)}</td></tr>`;
+  }
+}
+
+function raViewSpecificIssue(raName, issueType) {
+  if (!_geoAllGpsPoints || !_gpsMap) return;
+  const dupKey = new Map();
+  (_geoAllGpsPoints || []).forEach(p => {
+    const k = `${Number(p.lat).toFixed(6)},${Number(p.lng).toFixed(6)}`;
+    dupKey.set(k, (dupKey.get(k) || 0) + 1);
+  });
+  const filtered = (_geoAllGpsPoints || []).filter(p => {
+    if ((p.ra || '') !== raName) return false;
+    if (issueType === 'out_lga')        return !p.in_lga;
+    if (issueType === 'out_ward')       return !p.in_ward;
+    if (issueType === 'out_settlement') return !p.in_settlement;
+    if (issueType === 'duplicates')     return (dupKey.get(`${Number(p.lat).toFixed(6)},${Number(p.lng).toFixed(6)}`) || 0) > 1;
+    return false;
+  });
+  if (!filtered.length) { toast('No matching points for this RA.'); return; }
+  filtered.forEach(p => { p._flag_outside_lga = true; });
+  _renderGpsMarkers(filtered);
+  const bounds = L.latLngBounds(filtered.map(p => [p.lat, p.lng]));
+  _gpsMap.fitBounds(bounds, { padding: [60, 60], maxZoom: 18 });
+  const el = document.getElementById('gpsMap');
+  if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const labels = { out_lga: 'Outside LGA', out_ward: 'Outside Ward', out_settlement: 'Outside Settlement', duplicates: 'Duplicate GPS' };
+  const nameShort = raName.split('_')[0];
+  toast(`${nameShort} — ${filtered.length} ${labels[issueType] || issueType} point(s).`);
+}
+
+function raViewIssuesOnMap(raName) {
+  if (!_geoAllGpsPoints || !_gpsMap) return;
+  const dupKey = new Map();
+  (_geoAllGpsPoints || []).forEach(p => {
+    const k = `${Number(p.lat).toFixed(6)},${Number(p.lng).toFixed(6)}`;
+    dupKey.set(k, (dupKey.get(k) || 0) + 1);
+  });
+  const filtered = (_geoAllGpsPoints || []).filter(p => {
+    if ((p.ra || '') !== raName) return false;
+    const dup = (dupKey.get(`${Number(p.lat).toFixed(6)},${Number(p.lng).toFixed(6)}`) || 0) > 1;
+    return dup || !p.in_lga || !p.in_ward || !p.in_settlement;
+  });
+  if (!filtered.length) { toast('No flagged points for this RA.'); return; }
+  filtered.forEach(p => { p._flag_outside_lga = true; });
+  _renderGpsMarkers(filtered);
+  const bounds = L.latLngBounds(filtered.map(p => [p.lat, p.lng]));
+  _gpsMap.fitBounds(bounds, { padding: [60, 60], maxZoom: 17 });
+  const el = document.getElementById('gpsMap');
+  if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  toast(`Showing ${filtered.length} flagged point(s) for ${raName.split('_')[0]}.`);
 }
 
 function renderGeoBoundary(g) {
@@ -3327,8 +3495,9 @@ function _applyZoomCascade() {
     else if (z < ZOOM_WARD && _gpsMap.hasLayer(_gpsWardLayer)) _gpsMap.removeLayer(_gpsWardLayer);
   }
   if (_gpsSettlementLayer) {
-    if (z >= ZOOM_SETTLE && !_gpsMap.hasLayer(_gpsSettlementLayer)) _gpsSettlementLayer.addTo(_gpsMap);
-    else if (z < ZOOM_SETTLE && _gpsMap.hasLayer(_gpsSettlementLayer)) _gpsMap.removeLayer(_gpsSettlementLayer);
+    const forceOn = !!_geoFocusedSettlement;
+    if ((z >= ZOOM_SETTLE || forceOn) && !_gpsMap.hasLayer(_gpsSettlementLayer)) _gpsSettlementLayer.addTo(_gpsMap);
+    else if (z < ZOOM_SETTLE && !forceOn && _gpsMap.hasLayer(_gpsSettlementLayer)) _gpsMap.removeLayer(_gpsSettlementLayer);
   }
   _applyViewportFilter();
 }
@@ -3541,6 +3710,7 @@ let _geoNavLevel = 'lga';
 let _geoNavLga = null;
 let _geoNavWard = null;
 let _geoFocusedWard = null;
+let _geoFocusedSettlement = null;
 
 async function loadGeoLgaList() {
   try {
@@ -3577,6 +3747,7 @@ async function geoDrillToWard(wardName) {
   _geoNavLevel = 'settlement'; _geoNavWard = wardName;
   _renderBreadcrumb();
   _geoFocusedWard = wardName;
+  _geoFocusedSettlement = null;
   _applyFocusFilter();
   if (_gpsWardLayer) {
     let target = null;
@@ -3596,17 +3767,34 @@ async function geoDrillToWard(wardName) {
 
 function geoDrillToSettlement(sName) {
   if (!_gpsSettlementLayer) return;
+  _geoFocusedSettlement = sName;
+  // Force the settlement layer onto the map regardless of zoom threshold, and
+  // filter its layers so only the picked settlement stays visible + highlighted.
+  if (!_gpsMap.hasLayer(_gpsSettlementLayer)) _gpsSettlementLayer.addTo(_gpsMap);
   let target = null;
   _gpsSettlementLayer.eachLayer(l => {
     const p = l.feature.properties || {};
-    if (_matchLga(p.lganame, _geoNavLga) && String(p.wardname || '').toLowerCase() === (_geoNavWard || '').toLowerCase() && String(p.settlement || '').toLowerCase() === sName.toLowerCase()) target = l;
+    const isThis = _matchLga(p.lganame, _geoNavLga)
+      && String(p.wardname || '').toLowerCase() === (_geoNavWard || '').toLowerCase()
+      && String(p.settlement || '').toLowerCase() === sName.toLowerCase();
+    _setLayerVisible(l, isThis);
+    if (isThis) {
+      target = l;
+      l.setStyle({ color: '#0F5132', weight: 2.5, fillColor: (p.visited ? '#22C55E' : '#EF4444'), fillOpacity: 0.35 });
+    }
   });
-  if (target && _gpsMap) _gpsMap.fitBounds(target.getBounds(), { padding: [60, 60], maxZoom: 16 });
+  _applyFocusFilter();
+  if (target && _gpsMap) {
+    _gpsMap.fitBounds(target.getBounds(), { padding: [80, 80], maxZoom: 17 });
+    target.bringToFront();
+  } else {
+    toast('Settlement polygon not found in the boundary layer.');
+  }
 }
 
 async function geoNavToLevel(level, lga) {
-  if (level === 'lga') { _geoFocusedWard = null; loadGeoLgaList(); geoResetFocus(); return; }
-  if (level === 'ward' && lga) { _geoFocusedWard = null; await geoDrillToLga(lga); return; }
+  if (level === 'lga') { _geoFocusedWard = null; _geoFocusedSettlement = null; loadGeoLgaList(); geoResetFocus(); return; }
+  if (level === 'ward' && lga) { _geoFocusedWard = null; _geoFocusedSettlement = null; await geoDrillToLga(lga); return; }
 }
 let _gpsFocusedLga = null;
 
@@ -3623,6 +3811,7 @@ function _setLayerVisible(l, visible) {
 function _applyFocusFilter() {
   const focus = _gpsFocusedLga;
   const wardFocus = _geoFocusedWard;
+  const settleFocus = _geoFocusedSettlement;
   if (_gpsLgaLayer) {
     _gpsLgaLayer.eachLayer(l => _setLayerVisible(l, !focus || _matchLga(l.feature.properties.lganame, focus)));
   }
@@ -3644,8 +3833,13 @@ function _applyFocusFilter() {
       const p = l.feature.properties || {};
       const inLga = !focus || _matchLga(p.lganame, focus);
       const inWard = !wardFocus || String(p.wardname || '').toLowerCase() === wardFocus.toLowerCase();
-      _setLayerVisible(l, inLga && inWard);
+      const inSettle = !settleFocus || String(p.settlement || '').toLowerCase() === settleFocus.toLowerCase();
+      _setLayerVisible(l, inLga && inWard && inSettle);
+      // reset style when leaving settlement focus so highlights don't linger
+      if (!settleFocus) _gpsSettlementLayer.resetStyle(l);
     });
+    // when a settlement is picked, override the zoom cascade so the polygon stays visible
+    if (settleFocus && !_gpsMap.hasLayer(_gpsSettlementLayer)) _gpsSettlementLayer.addTo(_gpsMap);
   }
   const points = (_geoAllGpsPoints || []).filter(p => {
     if (focus && !_matchLga(p.matched_lga || p.reported_lga, focus)) return false;
@@ -4226,9 +4420,12 @@ document.addEventListener('DOMContentLoaded', () => { loadAll(); _loadProjectSwi
               <button class="admin-btn admin-btn-primary" onclick="admOpenCreateUser()"><i class="bi bi-plus-lg"></i> Create User</button>
             </div>
           </div>
+          <div class="usr-proj-tabs" id="usrProjTabs">
+            <button class="usr-proj-tab active" data-proj="all" onclick="usrSetProject('all')">All Users</button>
+          </div>
           <div class="admin-table-wrap">
             <table class="admin-table">
-              <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>LGAs</th><th>Status</th><th>Created</th><th></th></tr></thead>
+              <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Projects</th><th>LGAs</th><th>Status</th><th></th></tr></thead>
               <tbody id="admUsersBody"><tr><td colspan="7" class="admin-table-empty">Loading…</td></tr></tbody>
             </table>
           </div>
@@ -4254,6 +4451,10 @@ document.addEventListener('DOMContentLoaded', () => { loadAll(); _loadProjectSwi
                 <option value="validator">Validator</option>
                 <option value="public">Public</option>
               </select>
+            </div>
+            <div class="admin-field">
+              <label>Assign to Projects <span style="color:var(--text-muted);font-weight:400;font-size:11px">(click to toggle)</span></label>
+              <div class="admin-chip-set" id="admNewProjChips">Loading…</div>
             </div>
             <div class="admin-field"><label>Password <span style="color:var(--text-muted);font-weight:400;font-size:11px">(leave blank to send invite link)</span></label><input type="password" id="admNewPassword" placeholder="Optional — invite link generated if empty" /></div>
             <div class="admin-field" id="admLgaRow" style="display:none">
@@ -4300,6 +4501,44 @@ document.addEventListener('DOMContentLoaded', () => { loadAll(); _loadProjectSwi
         </div>
       </div>
 
+      <!-- Sample Schema Modal -->
+      <div class="admin-modal-overlay" id="admSchemaModal" onclick="if(event.target===this)admHideSchemaSample()">
+        <div class="admin-modal" style="max-width:720px">
+          <div class="admin-modal-head">
+            <h3><i class="bi bi-table"></i> Planning File — Sample Schema</h3>
+            <button class="admin-modal-close" onclick="admHideSchemaSample()"><i class="bi bi-x-lg"></i></button>
+          </div>
+          <p style="font-size:13px;color:var(--text-muted);margin:0 0 14px">The planning file lists every settlement your enumerators should reach, with planned household counts. Save as <code>.xlsx</code> or <code>.csv</code> with the following columns:</p>
+          <div class="admin-table-wrap" style="border:1px solid var(--border);border-radius:8px">
+            <table class="admin-table" style="font-size:12px">
+              <thead style="background:#F9FBF9"><tr><th>Column</th><th>Type</th><th>Required</th><th>Example</th></tr></thead>
+              <tbody>
+                <tr><td><code>lga</code></td><td>text</td><td>✓</td><td>Kware</td></tr>
+                <tr><td><code>ward</code></td><td>text</td><td>✓</td><td>Gandu</td></tr>
+                <tr><td><code>settlement</code></td><td>text</td><td>✓</td><td>Shiyar Majijira A</td></tr>
+                <tr><td><code>settlement_code</code></td><td>text</td><td>✓</td><td>SO-KWA-GAN-0034</td></tr>
+                <tr><td><code>planned_hh</code></td><td>integer</td><td>✓</td><td>52</td></tr>
+                <tr><td><code>lga_code</code></td><td>text</td><td>optional</td><td>SO-611</td></tr>
+                <tr><td><code>ward_code</code></td><td>text</td><td>optional</td><td>SO-611-01</td></tr>
+                <tr><td><code>settlement_type</code></td><td><em>rural</em> / <em>urban</em></td><td>optional</td><td>rural</td></tr>
+                <tr><td><code>latitude</code></td><td>decimal</td><td>optional</td><td>13.05612</td></tr>
+                <tr><td><code>longitude</code></td><td>decimal</td><td>optional</td><td>5.23478</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p style="font-size:12px;color:var(--text-muted);margin:14px 0 4px"><strong>Notes:</strong></p>
+          <ul style="font-size:12px;color:var(--text-muted);margin:0;padding-left:20px;line-height:1.7">
+            <li>Column names must match exactly (case-insensitive).</li>
+            <li><code>settlement_code</code> is the join key against the Kobo submission's community field.</li>
+            <li>The five required columns are enforced on upload — extras are ignored.</li>
+            <li>The <strong>Geospatial ZIP</strong> should contain three matching shapefile bundles: <code>lga.shp/.dbf/.prj/.shx</code>, <code>ward.shp/…</code>, <code>Settlement.shp/…</code>. WGS84 or Web-Mercator both accepted.</li>
+          </ul>
+          <div class="admin-modal-actions">
+            <button class="admin-btn admin-btn-primary" onclick="admHideSchemaSample()">Got it</button>
+          </div>
+        </div>
+      </div>
+
       <!-- Create Project Modal -->
       <div class="admin-modal-overlay" id="admCreateProjectModal" onclick="if(event.target===this)admCloseCreateProject()">
         <div class="admin-modal" style="max-width:560px">
@@ -4316,7 +4555,10 @@ document.addEventListener('DOMContentLoaded', () => { loadAll(); _loadProjectSwi
             <div class="admin-field"><label>Kobo Export URL *</label><input type="url" id="admProjKoboUrl" required placeholder="https://kf.kobotoolbox.org/api/v2/assets/..." /></div>
             <div class="admin-field"><label>Kobo API Token <span style="color:var(--text-muted);font-size:11px">(optional for public exports)</span></label><input type="text" id="admProjKoboToken" placeholder="Bearer token if the export is private" /></div>
             <div class="admin-field"><label>Planned LGAs <span style="color:var(--text-muted);font-size:11px">(comma-separated)</span></label><input type="text" id="admProjLgas" placeholder="e.g. Ajingi, Bebeji, Bichi" /></div>
-            <div class="admin-field"><label>Planning File <span style="color:var(--text-muted);font-size:11px">(.xlsx / .csv)</span></label><input type="file" id="admProjPlanFile" accept=".xlsx,.xls,.csv" /></div>
+            <div class="admin-field">
+              <label>Planning File <span style="color:var(--text-muted);font-size:11px">(.xlsx / .csv)</span> · <a href="#" onclick="event.preventDefault();admShowSchemaSample()" style="color:var(--olive);text-decoration:underline;font-weight:500">click here to see sample schema</a></label>
+              <input type="file" id="admProjPlanFile" accept=".xlsx,.xls,.csv" />
+            </div>
             <div class="admin-field"><label>Geospatial ZIP <span style="color:var(--text-muted);font-size:11px">(.zip containing LGA / ward / settlement shapefiles)</span></label><input type="file" id="admProjGeoZip" accept=".zip,.geojson,.json" /></div>
             <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink);margin-bottom:12px">
               <input type="checkbox" id="admProjDefault" /> Set as the active project (shows on the landing page)

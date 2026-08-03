@@ -483,6 +483,36 @@ def all_points() -> list[dict]:
         session.close()
 
 
+def issues_by_ra() -> list[dict]:
+    session = SessionLocal()
+    try:
+        rows = session.query(GpsPoint).all()
+    finally:
+        session.close()
+    dup_map: dict = {}
+    for r in rows:
+        k = (round(r.lat, 6), round(r.lng, 6))
+        dup_map[k] = dup_map.get(k, 0) + 1
+    by_ra: dict = {}
+    for r in rows:
+        ra = (r.ra or "Unknown").strip() or "Unknown"
+        b = by_ra.setdefault(ra, {
+            "ra": ra, "total_points": 0, "total_issues": 0,
+            "out_lga": 0, "out_ward": 0, "out_settlement": 0, "duplicates": 0,
+        })
+        b["total_points"] += 1
+        is_dup = dup_map.get((round(r.lat, 6), round(r.lng, 6)), 0) > 1
+        has_any = False
+        if not r.in_lga: b["out_lga"] += 1; has_any = True
+        if not r.in_ward: b["out_ward"] += 1; has_any = True
+        if not r.in_settlement: b["out_settlement"] += 1; has_any = True
+        if is_dup: b["duplicates"] += 1; has_any = True
+        if has_any: b["total_issues"] += 1
+    out = [b for b in by_ra.values() if b["total_issues"] > 0]
+    out.sort(key=lambda x: -x["total_issues"])
+    return out
+
+
 def flagged_points(limit: int = 500) -> list[dict]:
     session = SessionLocal()
     try:
