@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import hashlib
+import json
+import zipfile
 from pathlib import Path
 from typing import Any
 
@@ -10,7 +13,7 @@ from shapely.geometry import Point, shape as shp_shape
 from shapely.ops import transform as shp_transform
 from shapely.prepared import prep
 
-from .database import GpsPoint, SessionLocal
+from .database import GpsPoint, Project, SessionLocal
 
 WGS84_TO_MERCATOR = Transformer.from_crs("EPSG:4326", "EPSG:3857", always_xy=True)
 MERCATOR_TO_WGS84 = Transformer.from_crs("EPSG:3857", "EPSG:4326", always_xy=True)
@@ -25,6 +28,97 @@ _lga_shapes: list[tuple[Any, dict, Any]] = []
 _ward_shapes: list[tuple[Any, dict, Any]] = []
 _settlement_shapes: list[tuple[Any, dict, Any]] = []
 _loaded: bool = False
+_active_project_id: int | None = None
+# prepared shapes per geo directory (fast re-loading when toggling projects)
+_shapes_cache: dict[str, tuple[list[tuple[Any, dict, Any]], list[tuple[Any, dict, Any]], list[tuple[Any, dict, Any]]]] = {}
+
+
+def _active_project_id_from_db() -> int | None:
+    try:
+        with SessionLocal() as db:
+            p = db.query(Project).filter(Project.is_default == True).first()  # noqa: E712
+            if not p:
+                p = db.query(Project).order_by(Project.id.asc()).first()
+            return p.id if p else None
+    except Exception:
+        return None
+
+
+def _project_cond():
+    if _active_project_id is not None:
+        return GpsPoint.project_id == _active_project_id
+    return GpsPoint.project_id.is_(None)
+
+
+def _project_geo_dir(project_id: int) -> Path:
+    target = GEO_DIR / f"p{project_id}"
+    target.mkdir(parents=True, exist_ok=True)
+    return target
+
+
+def _cache_dir() -> Path:
+    return Path(__file__).resolve().parent.parent / "data" / "cache"
+
+
+def _fingerprint_for(project_id: int) -> str | None:
+    """Hash of the project's cached Kobo export — used to skip redundant GPS rebuilds."""
+    f = _cache_dir() / f"p{project_id}.xlsx"
+    if not f.exists():
+        return None
+    h = hashlib.md5()
+    with f.open("rb") as fh:
+        for chunk in iter(lambda: fh.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _meta_path(project_id: int) -> Path:
+    return _cache_dir() / f"p{project_id}.meta.json"
+
+
+def _gps_count(project_id: int) -> int:
+    from sqlalchemy import func
+
+    session = SessionLocal()
+    try:
+        return session.query(func.count(GpsPoint.id)).filter(GpsPoint.project_id == project_id).scalar() or 0
+    finally:
+        session.close()
+
+
+def sync_gps_points(cov: pd.DataFrame, project_id: int | None = None, force: bool = False) -> dict:
+    """Rebuild the project's GPS points only when its source data changed."""
+    pid = project_id or _active_project_id
+    fp = _fingerprint_for(pid)
+    meta: dict = {}
+    mp = _meta_path(pid)
+    if mp.exists():
+        try:
+            meta = json.loads(mp.read_text())
+        except Exception:
+            meta = {}
+    if not force and fp and meta.get("fingerprint") == fp and meta.get("gps_count") == _gps_count(pid):
+        return {"status": "skipped", "count": meta.get("gps_count", 0)}
+    result = rebuild_gps_points_table(cov, pid)
+    try:
+        mp.write_text(json.dumps({"fingerprint": fp, "gps_count": result.get("count", 0)}))
+    except Exception as e:
+        print(f"[geo] could not write meta: {e}")
+    return result
+
+
+def _extract_zip(zip_path: Path, project_id: int) -> Path:
+    """Flatten a shapefile bundle from a project-uploaded zip into its own folder."""
+    target = _project_geo_dir(project_id)
+    with zipfile.ZipFile(zip_path) as z:
+        for name in z.namelist():
+            base = Path(name).name
+            if not base:
+                continue
+            if base.lower().endswith((".shp", ".dbf", ".prj", ".shx", ".geojson", ".json")):
+                with z.open(name) as src, (target / base).open("wb") as dst:
+                    dst.write(src.read())
+    return target
 
 
 def _read_shp(path: Path, name_fields: list[str]) -> list[tuple[Any, dict, Any]]:
@@ -48,11 +142,32 @@ def _read_shp(path: Path, name_fields: list[str]) -> list[tuple[Any, dict, Any]]
     return result
 
 
-def load() -> None:
-    global _lga_shapes, _ward_shapes, _settlement_shapes, _loaded
-    _lga_shapes = _read_shp(GEO_DIR / "lga.shp", ["lganame"])
-    _ward_shapes = _read_shp(GEO_DIR / "ward.shp", ["lganame", "wardname"])
-    _settlement_shapes = _read_shp(GEO_DIR / "Settlement.shp", ["lga_name", "ward_name", "settlement"])
+def load(project_id: int | None = None) -> None:
+    global _lga_shapes, _ward_shapes, _settlement_shapes, _loaded, PLANNED_LGAS, _active_project_id
+    pid = project_id or _active_project_id_from_db()
+    _active_project_id = pid
+    geo_dir = GEO_DIR
+    if pid:
+        try:
+            with SessionLocal() as db:
+                p = db.query(Project).filter(Project.id == pid).first()
+                if p:
+                    if p.geospatial_zip_path and Path(p.geospatial_zip_path).exists():
+                        _extract_zip(Path(p.geospatial_zip_path), pid)
+                        geo_dir = _project_geo_dir(pid)
+                    if p.planned_lgas:
+                        PLANNED_LGAS = {x.strip().upper() for x in p.planned_lgas.split(",") if x.strip()}
+        except Exception as e:
+            print(f"[geo] project config failed: {e}")
+    key = str(geo_dir)
+    cached = _shapes_cache.get(key)
+    if cached is None:
+        _lga_shapes = _read_shp(geo_dir / "lga.shp", ["lganame"])
+        _ward_shapes = _read_shp(geo_dir / "ward.shp", ["lganame", "wardname"])
+        _settlement_shapes = _read_shp(geo_dir / "Settlement.shp", ["lga_name", "ward_name", "settlement"])
+        _shapes_cache[key] = (_lga_shapes, _ward_shapes, _settlement_shapes)
+    else:
+        _lga_shapes, _ward_shapes, _settlement_shapes = cached
     _loaded = True
 
 
@@ -97,9 +212,10 @@ def _pick_column(df: pd.DataFrame, candidates: list[str]) -> str | None:
     return None
 
 
-def rebuild_gps_points_table(cov: pd.DataFrame) -> dict:
+def rebuild_gps_points_table(cov: pd.DataFrame, project_id: int | None = None) -> dict:
     if not _loaded:
-        load()
+        load(project_id)
+    pid = project_id or _active_project_id
 
     lat_col = _pick_column(cov, ["_Q9. GPS coordinates_latitude"])
     lng_col = _pick_column(cov, ["_Q9. GPS coordinates_longitude"])
@@ -119,7 +235,10 @@ def rebuild_gps_points_table(cov: pd.DataFrame) -> dict:
 
     session = SessionLocal()
     try:
-        session.query(GpsPoint).delete()
+        if pid is not None:
+            session.query(GpsPoint).filter(GpsPoint.project_id == pid).delete()
+        else:
+            session.query(GpsPoint).delete()
         session.commit()
 
         rows: list[GpsPoint] = []
@@ -135,6 +254,7 @@ def rebuild_gps_points_table(cov: pd.DataFrame) -> dict:
             _sl_lga, _sl_ward, m_settlement = find_settlement(lat, lng)
 
             rows.append(GpsPoint(
+                project_id=pid,
                 uuid=str(r[uuid_col]).strip() if uuid_col and pd.notna(r.get(uuid_col)) else None,
                 ra=str(r[ra_col]).strip() if ra_col and pd.notna(r.get(ra_col)) else None,
                 lat=lat, lng=lng,
@@ -158,13 +278,14 @@ def summary() -> dict:
     session = SessionLocal()
     try:
         from sqlalchemy import func
-        total = session.query(func.count(GpsPoint.id)).scalar() or 0
-        outside_lga = session.query(func.count(GpsPoint.id)).filter(GpsPoint.in_lga == False).scalar() or 0  # noqa: E712
-        outside_ward = session.query(func.count(GpsPoint.id)).filter(GpsPoint.in_ward == False).scalar() or 0  # noqa: E712
-        outside_settlement = session.query(func.count(GpsPoint.id)).filter(GpsPoint.in_settlement == False).scalar() or 0  # noqa: E712
-        lga_mismatch = session.query(func.count(GpsPoint.id)).filter(GpsPoint.in_lga == True, GpsPoint.lga_match == False).scalar() or 0  # noqa: E712
-        ward_mismatch = session.query(func.count(GpsPoint.id)).filter(GpsPoint.in_ward == True, GpsPoint.ward_match == False).scalar() or 0  # noqa: E712
-        settlement_mismatch = session.query(func.count(GpsPoint.id)).filter(GpsPoint.in_settlement == True, GpsPoint.settlement_match == False).scalar() or 0  # noqa: E712
+        cond = _project_cond()
+        total = session.query(func.count(GpsPoint.id)).filter(cond).scalar() or 0
+        outside_lga = session.query(func.count(GpsPoint.id)).filter(cond, GpsPoint.in_lga == False).scalar() or 0  # noqa: E712
+        outside_ward = session.query(func.count(GpsPoint.id)).filter(cond, GpsPoint.in_ward == False).scalar() or 0  # noqa: E712
+        outside_settlement = session.query(func.count(GpsPoint.id)).filter(cond, GpsPoint.in_settlement == False).scalar() or 0  # noqa: E712
+        lga_mismatch = session.query(func.count(GpsPoint.id)).filter(cond, GpsPoint.in_lga == True, GpsPoint.lga_match == False).scalar() or 0  # noqa: E712
+        ward_mismatch = session.query(func.count(GpsPoint.id)).filter(cond, GpsPoint.in_ward == True, GpsPoint.ward_match == False).scalar() or 0  # noqa: E712
+        settlement_mismatch = session.query(func.count(GpsPoint.id)).filter(cond, GpsPoint.in_settlement == True, GpsPoint.settlement_match == False).scalar() or 0  # noqa: E712
         return {
             "total": total,
             "outside_lga": outside_lga,
@@ -189,23 +310,24 @@ def _aggregate_stats() -> dict:
     session = SessionLocal()
     try:
         from sqlalchemy import func
+        cond = _project_cond()
         lga_pts = dict(session.query(GpsPoint.matched_lga, func.count(GpsPoint.id))
-                       .filter(GpsPoint.matched_lga.isnot(None))
+                       .filter(cond, GpsPoint.matched_lga.isnot(None))
                        .group_by(GpsPoint.matched_lga).all())
         ward_pts: dict = {}
         for lga, ward, cnt in session.query(GpsPoint.matched_lga, GpsPoint.matched_ward, func.count(GpsPoint.id))\
-                .filter(GpsPoint.matched_lga.isnot(None), GpsPoint.matched_ward.isnot(None))\
+                .filter(cond, GpsPoint.matched_lga.isnot(None), GpsPoint.matched_ward.isnot(None))\
                 .group_by(GpsPoint.matched_lga, GpsPoint.matched_ward).all():
             ward_pts[(_norm(lga), _norm(ward))] = cnt
         visited_settlements: set = set()
         for lga, ward, sname in session.query(GpsPoint.matched_lga, GpsPoint.matched_ward, GpsPoint.matched_settlement)\
-                .filter(GpsPoint.matched_settlement.isnot(None)).all():
+                .filter(cond, GpsPoint.matched_settlement.isnot(None)).all():
             visited_settlements.add((_norm(lga), _norm(ward), _norm(sname)))
-        reported_lgas = {_norm(x) for x, in session.query(GpsPoint.reported_lga).filter(GpsPoint.reported_lga.isnot(None)).distinct().all()}
+        reported_lgas = {_norm(x) for x, in session.query(GpsPoint.reported_lga).filter(cond, GpsPoint.reported_lga.isnot(None)).distinct().all()}
         reported_wards = {(_norm(l), _norm(w)) for l, w in session.query(GpsPoint.reported_lga, GpsPoint.reported_ward)
-                          .filter(GpsPoint.reported_lga.isnot(None), GpsPoint.reported_ward.isnot(None)).distinct().all()}
+                          .filter(cond, GpsPoint.reported_lga.isnot(None), GpsPoint.reported_ward.isnot(None)).distinct().all()}
         reported_settlements = {(_norm(l), _norm(w), _norm(s)) for l, w, s in session.query(GpsPoint.reported_lga, GpsPoint.reported_ward, GpsPoint.reported_community)
-                                .filter(GpsPoint.reported_community.isnot(None)).distinct().all()}
+                                .filter(cond, GpsPoint.reported_community.isnot(None)).distinct().all()}
         return {
             "lga_pts": {_norm(k): v for k, v in lga_pts.items()},
             "ward_pts": ward_pts,
@@ -334,7 +456,8 @@ def _issue_counts_by(group_cols: list, filters: list = None) -> dict:
     from sqlalchemy import func, or_, and_
     session = SessionLocal()
     try:
-        base = session.query(*group_cols, func.count(GpsPoint.id))
+        cond = _project_cond()
+        base = session.query(*group_cols, func.count(GpsPoint.id)).filter(cond)
         if filters:
             for f in filters:
                 base = base.filter(f)
@@ -343,7 +466,7 @@ def _issue_counts_by(group_cols: list, filters: list = None) -> dict:
             key = tuple(_norm(row[i]) for i in range(len(group_cols)))
             totals[key] = row[-1]
 
-        issue_q = session.query(*group_cols, func.count(GpsPoint.id))
+        issue_q = session.query(*group_cols, func.count(GpsPoint.id)).filter(cond)
         if filters:
             for f in filters:
                 issue_q = issue_q.filter(f)
@@ -370,7 +493,7 @@ def lga_stats() -> list[dict]:
     from sqlalchemy import func
     session = SessionLocal()
     try:
-        rows_pts = session.query(GpsPoint).all()
+        rows_pts = session.query(GpsPoint).filter(_project_cond()).all()
     finally:
         session.close()
 
@@ -413,7 +536,7 @@ def lga_stats() -> list[dict]:
 def _wards_or_settlements(level: str, lga: str, ward: str | None = None) -> list[dict]:
     session = SessionLocal()
     try:
-        q = session.query(GpsPoint).filter(GpsPoint.reported_lga.isnot(None))
+        q = session.query(GpsPoint).filter(_project_cond(), GpsPoint.reported_lga.isnot(None))
         rows = [r for r in q.all() if _norm(r.reported_lga) == _norm(lga)]
     finally:
         session.close()
@@ -465,7 +588,7 @@ def settlement_stats(lga: str, ward: str) -> list[dict]:
 def all_points() -> list[dict]:
     session = SessionLocal()
     try:
-        rows = session.query(GpsPoint).all()
+        rows = session.query(GpsPoint).filter(_project_cond()).all()
         return [{
             "lat": r.lat, "lng": r.lng,
             "reported_lga": r.reported_lga,
@@ -486,7 +609,7 @@ def all_points() -> list[dict]:
 def issues_by_ra() -> list[dict]:
     session = SessionLocal()
     try:
-        rows = session.query(GpsPoint).all()
+        rows = session.query(GpsPoint).filter(_project_cond()).all()
     finally:
         session.close()
     dup_map: dict = {}
@@ -517,6 +640,7 @@ def flagged_points(limit: int = 500) -> list[dict]:
     session = SessionLocal()
     try:
         q = session.query(GpsPoint).filter(
+            _project_cond(),
             (GpsPoint.in_lga == False) |  # noqa: E712
             (GpsPoint.in_ward == False) |
             (GpsPoint.in_settlement == False) |

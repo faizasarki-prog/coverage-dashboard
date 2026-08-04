@@ -42,10 +42,11 @@ WEALTH_COLS = [
 ]
 
 
-def load_all_data():
-    cov = pd.read_excel(DATA_PATH, sheet_name=0, dtype=str)
-    child_info = pd.read_excel(DATA_PATH, sheet_name='child_info', dtype=str)
-    child_eligible = pd.read_excel(DATA_PATH, sheet_name='child_infoo', dtype=str)
+def load_all_data(path: str | None = None):
+    path = path or DATA_PATH
+    cov = pd.read_excel(path, sheet_name=0, dtype=str)
+    child_info = pd.read_excel(path, sheet_name='child_info', dtype=str)
+    child_eligible = pd.read_excel(path, sheet_name='child_infoo', dtype=str)
     return cov, child_info, child_eligible
 
 

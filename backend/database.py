@@ -125,6 +125,7 @@ class AuditLog(Base):
 class GpsPoint(Base):
     __tablename__ = "gps_points"
     id = Column(Integer, primary_key=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=True, index=True)
     uuid = Column(String(64), index=True)
     ra = Column(Text, nullable=True)
     lat = Column(Float, nullable=False)
@@ -199,6 +200,7 @@ def _run_sqlite_migrations() -> None:
         ("projects", "planned_lgas", "TEXT"),
         ("projects", "last_synced_at", "DATETIME"),
         ("projects", "last_sync_rows", "INTEGER"),
+        ("gps_points", "project_id", "INTEGER"),
     ]
     with engine.begin() as conn:
         for table, col, ddl in additions:
@@ -209,6 +211,11 @@ def _run_sqlite_migrations() -> None:
                 continue
             if not _sqlite_column_exists(conn, table, col):
                 conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {ddl}"))
+
+    with engine.begin() as conn:
+        # Legacy rows written before multi-project support have no project_id.
+        if _sqlite_column_exists(conn, "gps_points", "project_id"):
+            conn.execute(text("DELETE FROM gps_points WHERE project_id IS NULL"))
 
 
 def _seed_roles_and_permissions(db: Session) -> dict[str, Role]:
@@ -262,7 +269,11 @@ def _seed_default_project(db: Session) -> None:
     if existing:
         if not existing.is_default and not db.query(Project).filter(Project.is_default == True).first():  # noqa: E712
             existing.is_default = True
-            db.commit()
+        if not existing.kobo_api_url:
+            existing.kobo_api_url = settings.KOBO_DATA_URL
+        if not existing.kobo_api_token:
+            existing.kobo_api_token = settings.KOBO_API_TOKEN
+        db.commit()
         return
     db.add(Project(
         name="Sokoto Coverage",
@@ -275,6 +286,15 @@ def _seed_default_project(db: Session) -> None:
         is_default=True,
     ))
     db.commit()
+
+
+def get_active_project_id() -> int | None:
+    """Return the currently active project id (is_default, else oldest project)."""
+    with SessionLocal() as db:
+        p = db.query(Project).filter(Project.is_default == True).first()  # noqa: E712
+        if not p:
+            p = db.query(Project).order_by(Project.id.asc()).first()
+        return p.id if p else None
 
 
 def init_db() -> None:

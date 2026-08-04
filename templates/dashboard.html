@@ -2715,9 +2715,9 @@ async function admActivateProject(id) {
     const r = await fetch(`/api/projects/${id}/activate`, { method: 'POST' });
     const d = await r.json();
     if (!r.ok) throw new Error(d.detail || 'Failed');
-    toast(`"${d.name}" is now the active project.`);
-    adminLoadProjects();
-    _loadProjectSwitcher();
+    if (d.data_warning) toast('Warning: ' + d.data_warning, true);
+    toast(`"${d.name}" is now the active project. Refreshing…`);
+    setTimeout(() => window.location.reload(), 900);
   } catch (e) { toast('Error: ' + e.message, true); }
 }
 async function admDeleteProject(id, name) {
@@ -2759,6 +2759,7 @@ async function _switchProject(id) {
     const r = await fetch(`/api/projects/${id}/activate`, { method: 'POST' });
     if (!r.ok) throw new Error('Switch failed');
     const d = await r.json();
+    if (d.data_warning) toast('Warning: ' + d.data_warning, true);
     toast(`Switched to "${d.name}". Refreshing…`);
     setTimeout(() => window.location.reload(), 700);
   } catch (e) { toast('Error: ' + e.message, true); }
@@ -2780,7 +2781,7 @@ async function admLoadDataStatus() {
   if (!badge || !meta) return;
   try {
     const s = await api('/api/data/status');
-    badge.textContent = s.source === 'kobo_api' ? '● KoboToolbox API' : s.source;
+    badge.textContent = s.source === 'kobo_api' ? '● KoboToolbox API' : (s.source === 'kobo_cache' ? '● Cached export' : s.source);
     badge.style.color = '#166534';
     meta.innerHTML = `
       <div><strong>URL:</strong> <code style="font-size:11px;background:#F3F4F6;padding:2px 6px;border-radius:4px">${_esc(s.kobo_url || '—')}</code></div>
@@ -2800,6 +2801,7 @@ async function admSyncNow() {
     const d = await r.json();
     if (!r.ok) throw new Error(d.detail || 'Sync failed');
     toast(`Synced ${(d.rows || 0).toLocaleString()} household rows from ${d.source}.`);
+    if (d.warning) toast('Warning: ' + d.warning, true);
     admLoadDataStatus();
   } catch (e) {
     toast('Sync error: ' + e.message, true);

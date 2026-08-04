@@ -6,6 +6,7 @@ from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 
 from ..auth import generate_invite_token, hash_password
+from .. import data_service, geospatial
 from ..database import AuditLog, Project, Role, User, UserLGA, get_db
 
 PROJECT_UPLOADS_DIR: Path = Path(__file__).resolve().parent.parent.parent / "data" / "project_uploads"
@@ -182,6 +183,27 @@ def _save_upload(file: UploadFile, project_id: int, suffix: str) -> str:
     return str(dst)
 
 
+def _load_project_data(project_id: int) -> str | None:
+    """Load a project's Kobo data + geospatial and sync its GPS points.
+
+    Uses the project's cached export when available so toggling projects is
+    fast; Kobo is only re-fetched when there is no cache yet.
+    Returns a warning on failure.
+    """
+    try:
+        warning = data_service.load_data(project_id=project_id)
+    except Exception as e:
+        return str(e)
+    try:
+        geospatial.load(project_id=project_id)
+        cov = getattr(data_service, "cov", None)
+        if cov is not None and len(cov) > 0:
+            geospatial.sync_gps_points(cov, project_id)
+    except Exception as e:
+        return f"data loaded, but geospatial processing failed: {e}"
+    return warning
+
+
 @router.post("/api/projects", status_code=201)
 async def create_project(
     request: Request,
@@ -221,8 +243,11 @@ async def create_project(
         db.query(Project).update({Project.is_default: False})
         p.is_default = True
     db.commit()
+    result = _project_to_dict(p)
+    if is_default:
+        result["data_warning"] = _load_project_data(p.id)
     _audit(db, None, "project.create", f"name={name} state={state}", request)
-    return _project_to_dict(p)
+    return result
 
 
 @router.post("/api/projects/{project_id}/upload")
@@ -256,8 +281,10 @@ def activate_project(project_id: int, request: Request, db: Session = Depends(ge
     db.query(Project).update({Project.is_default: False})
     p.is_default = True
     db.commit()
+    result = _project_to_dict(p)
+    result["data_warning"] = _load_project_data(project_id)
     _audit(db, None, "project.activate", f"project={p.name}", request)
-    return _project_to_dict(p)
+    return result
 
 
 @router.delete("/api/projects/{project_id}", status_code=204)

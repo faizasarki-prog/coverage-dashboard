@@ -26,10 +26,10 @@ async def lifespan(app: FastAPI):
     init_db()
     data_service.load_data()
     try:
-        geospatial.load()
+        geospatial.load(project_id=data_service.current_project_id)
         cov = getattr(data_service, "cov", None)
-        if cov is not None:
-            geospatial.rebuild_gps_points_table(cov)
+        if cov is not None and len(cov) > 0:
+            geospatial.sync_gps_points(cov, data_service.current_project_id)
     except Exception as e:
         print(f"[geospatial] skipped: {e}")
     yield
@@ -135,21 +135,25 @@ def geo_issues_by_ra() -> list[dict]:
 
 @app.get("/api/data/status")
 def data_status() -> dict:
+    proj = data_service._project_row()
     return {
         "source": data_service.data_source,
         "loaded_at": data_service.data_loaded_at,
-        "kobo_url": settings.KOBO_DATA_URL,
-        "kobo_token_set": bool(settings.KOBO_API_TOKEN),
+        "project": proj["name"] if proj else None,
+        "project_id": proj["id"] if proj else None,
+        "kobo_url": (proj or {}).get("kobo_api_url") or settings.KOBO_DATA_URL,
+        "kobo_token_set": bool((proj or {}).get("kobo_api_token") or settings.KOBO_API_TOKEN),
     }
 
 
 @app.post("/api/data/refresh")
 def data_refresh() -> dict:
-    data_service.load_data(force_refresh=True)
+    warning = data_service.load_data(force_refresh=True)
     try:
         cov = getattr(data_service, "cov", None)
-        if cov is not None:
-            geospatial.rebuild_gps_points_table(cov)
+        if cov is not None and len(cov) > 0:
+            geospatial.load(project_id=data_service.current_project_id)
+            geospatial.sync_gps_points(cov, data_service.current_project_id, force=True)
     except Exception as e:
         print(f"[geospatial] rebuild after refresh failed: {e}")
     return {
@@ -157,6 +161,7 @@ def data_refresh() -> dict:
         "source": data_service.data_source,
         "loaded_at": data_service.data_loaded_at,
         "rows": int(len(data_service.cov)) if data_service.cov is not None else 0,
+        "warning": warning,
     }
 
 
