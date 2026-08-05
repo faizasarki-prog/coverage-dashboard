@@ -54,8 +54,14 @@ export default function Login() {
           name: body.name,
           email: body.email,
           permissions: body.permissions || [],
+          lgas: body.lgas || [],
+          project_ids: body.project_ids || [],
         })
       );
+      if (body.must_change_password) {
+        window.location.href = '/set-password';
+        return;
+      }
       window.location.href = '/';
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Sign in failed.';

@@ -77,6 +77,26 @@ def get_current_user(
     return user
 
 
+_optional_bearer = HTTPBearer(auto_error=False)
+
+
+def get_optional_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_optional_bearer),
+    db: Session = Depends(get_db),
+) -> User | None:
+    if not credentials:
+        return None
+    try:
+        payload = decode_token(credentials.credentials)
+        user_id = int(payload.get("sub") or "")
+    except (HTTPException, TypeError, ValueError):
+        return None
+    user = db.query(User).filter(User.id == user_id).one_or_none()
+    if not user or not user.is_active:
+        return None
+    return user
+
+
 def require_permission(perm: str) -> Callable[[User], User]:
     def _dep(user: User = Depends(get_current_user)) -> User:
         role_perms = {p.name for p in user.role.permissions} if user.role else set()

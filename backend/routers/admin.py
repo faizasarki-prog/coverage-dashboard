@@ -1,11 +1,11 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 
-from ..auth import generate_invite_token, hash_password
+from ..auth import generate_invite_token, get_current_user, hash_password
 from .. import data_service, geospatial
 from ..database import AuditLog, Project, Role, User, UserLGA, get_db
 
@@ -31,7 +31,14 @@ class UserCreate(BaseModel):
 
 
 @router.post("/api/users", status_code=201)
-def create_user(payload: UserCreate, request: Request, db: Session = Depends(get_db)) -> dict:
+def create_user(
+    payload: UserCreate,
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    if not user.role or user.role.name not in ("super_admin", "admin"):
+        raise HTTPException(status_code=403, detail="Not permitted")
     email = payload.email.strip().lower()
     if db.query(User).filter(User.email == email).first():
         raise HTTPException(status_code=409, detail=f"User {email} already exists")
@@ -54,6 +61,7 @@ def create_user(payload: UserCreate, request: Request, db: Session = Depends(get
         is_active=True,
         must_change_password=must_change,
         invite_token=invite,
+        invite_expires_at=(datetime.utcnow() + timedelta(days=7)) if invite else None,
     )
     db.add(u)
     db.flush()
@@ -66,7 +74,7 @@ def create_user(payload: UserCreate, request: Request, db: Session = Depends(get
         if proj:
             u.projects.append(proj)
     db.commit()
-    _audit(db, None, "user.create", f"created user {email} with role {payload.role}, {len(payload.lgas or [])} LGA(s)", request)
+    _audit(db, user.id, "user.create", f"created user {email} with role {payload.role}, {len(payload.lgas or [])} LGA(s)", request)
     return {
         "id": u.id, "name": u.name, "email": u.email, "role": payload.role,
         "lgas": payload.lgas or [],
@@ -79,7 +87,15 @@ class LgaUpdate(BaseModel):
 
 
 @router.put("/api/users/{user_id}/lgas")
-def update_user_lgas(user_id: int, payload: LgaUpdate, request: Request, db: Session = Depends(get_db)) -> dict:
+def update_user_lgas(
+    user_id: int,
+    payload: LgaUpdate,
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    if not user.role or user.role.name not in ("super_admin", "admin"):
+        raise HTTPException(status_code=403, detail="Not permitted")
     u = db.query(User).filter(User.id == user_id).first()
     if not u:
         raise HTTPException(status_code=404, detail="User not found")
@@ -89,12 +105,19 @@ def update_user_lgas(user_id: int, payload: LgaUpdate, request: Request, db: Ses
         if lga:
             db.add(UserLGA(user_id=user_id, lga_name=lga))
     db.commit()
-    _audit(db, None, "user.lgas_update", f"user={u.email} lgas={payload.lgas}", request)
+    _audit(db, user.id, "user.lgas_update", f"user={u.email} lgas={payload.lgas}", request)
     return {"user_id": user_id, "lgas": payload.lgas or []}
 
 
 @router.delete("/api/users/{user_id}", status_code=204)
-def delete_user(user_id: int, request: Request, db: Session = Depends(get_db)) -> None:
+def delete_user(
+    user_id: int,
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> None:
+    if not user.role or user.role.name not in ("super_admin", "admin"):
+        raise HTTPException(status_code=403, detail="Not permitted")
     u = db.query(User).filter(User.id == user_id).first()
     if not u:
         raise HTTPException(status_code=404, detail="User not found")
@@ -102,11 +125,17 @@ def delete_user(user_id: int, request: Request, db: Session = Depends(get_db)) -
     db.query(UserLGA).filter(UserLGA.user_id == user_id).delete()
     db.delete(u)
     db.commit()
-    _audit(db, None, "user.delete", f"deleted user {email}", request)
+    _audit(db, user.id, "user.delete", f"deleted user {email}", request)
 
 
 @router.get("/api/users")
-def list_users(project_id: int | None = None, db: Session = Depends(get_db)) -> list[dict]:
+def list_users(
+    project_id: int | None = None,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[dict]:
+    if not user.role or user.role.name not in ("super_admin", "admin"):
+        raise HTTPException(status_code=403, detail="Not permitted")
     q = db.query(User).order_by(User.created_at.desc())
     if project_id:
         proj = db.query(Project).filter(Project.id == project_id).first()
@@ -133,7 +162,7 @@ def list_users(project_id: int | None = None, db: Session = Depends(get_db)) -> 
     return out
 
 
-def _project_to_dict(p: Project) -> dict:
+def _project_to_dict(p: Project, redact: bool = False) -> dict:
     return {
         "id": p.id,
         "name": p.name,
@@ -141,10 +170,10 @@ def _project_to_dict(p: Project) -> dict:
         "state": p.state,
         "is_active": p.is_active,
         "is_default": bool(p.is_default),
-        "kobo_api_url": p.kobo_api_url,
-        "has_kobo_token": bool(p.kobo_api_token),
-        "planning_file": Path(p.planning_file_path).name if p.planning_file_path else None,
-        "geospatial_zip": Path(p.geospatial_zip_path).name if p.geospatial_zip_path else None,
+        "kobo_api_url": None if redact else p.kobo_api_url,
+        "has_kobo_token": False if redact else bool(p.kobo_api_token),
+        "planning_file": None if redact else (Path(p.planning_file_path).name if p.planning_file_path else None),
+        "geospatial_zip": None if redact else (Path(p.geospatial_zip_path).name if p.geospatial_zip_path else None),
         "planned_lgas": [x.strip() for x in (p.planned_lgas or "").split(",") if x.strip()],
         "last_synced_at": p.last_synced_at.isoformat() if p.last_synced_at else None,
         "last_sync_rows": p.last_sync_rows,
@@ -154,18 +183,33 @@ def _project_to_dict(p: Project) -> dict:
 
 
 @router.get("/api/projects")
-def list_projects(db: Session = Depends(get_db)) -> list[dict]:
+def list_projects(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[dict]:
     projects = db.query(Project).order_by(Project.id.asc()).all()
+    if user.role and user.role.name == "validator":
+        allowed_ids = {p.id for p in user.projects}
+        projects = [p for p in projects if p.id in allowed_ids]
+        return [_project_to_dict(p, redact=True) for p in projects]
     return [_project_to_dict(p) for p in projects]
 
 
 @router.get("/api/projects/active")
-def active_project(db: Session = Depends(get_db)) -> dict:
+def active_project(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
     p = db.query(Project).filter(Project.is_default == True).first()  # noqa: E712
     if not p:
         p = db.query(Project).order_by(Project.id.asc()).first()
     if not p:
         raise HTTPException(status_code=404, detail="No projects configured")
+    if user.role and user.role.name == "validator":
+        allowed_ids = {x.id for x in user.projects}
+        if p.id not in allowed_ids:
+            raise HTTPException(status_code=403, detail="Not permitted")
+        return _project_to_dict(p, redact=True)
     return _project_to_dict(p)
 
 
@@ -207,6 +251,7 @@ def _load_project_data(project_id: int) -> str | None:
 @router.post("/api/projects", status_code=201)
 async def create_project(
     request: Request,
+    user: User = Depends(get_current_user),
     name: str = Form(...),
     state: str = Form(...),
     kobo_api_url: str = Form(""),
@@ -218,6 +263,8 @@ async def create_project(
     geospatial_zip: UploadFile | None = File(None),
     db: Session = Depends(get_db),
 ) -> dict:
+    if not user.role or user.role.name not in ("super_admin", "admin"):
+        raise HTTPException(status_code=403, detail="Not permitted")
     name = name.strip()
     if not name:
         raise HTTPException(status_code=400, detail="Project name is required")
@@ -254,10 +301,13 @@ async def create_project(
 async def upload_project_files(
     project_id: int,
     request: Request,
+    user: User = Depends(get_current_user),
     planning_file: UploadFile | None = File(None),
     geospatial_zip: UploadFile | None = File(None),
     db: Session = Depends(get_db),
 ) -> dict:
+    if not user.role or user.role.name not in ("super_admin", "admin"):
+        raise HTTPException(status_code=403, detail="Not permitted")
     p = db.query(Project).filter(Project.id == project_id).first()
     if not p:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -269,26 +319,44 @@ async def upload_project_files(
         p.geospatial_zip_path = _save_upload(geospatial_zip, p.id, "geo")
         changes.append("geospatial")
     db.commit()
-    _audit(db, None, "project.upload", f"project={p.name} files={','.join(changes)}", request)
+    _audit(db, user.id, "project.upload", f"project={p.name} files={','.join(changes)}", request)
     return _project_to_dict(p)
 
 
 @router.post("/api/projects/{project_id}/activate")
-def activate_project(project_id: int, request: Request, db: Session = Depends(get_db)) -> dict:
+def activate_project(
+    project_id: int,
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
     p = db.query(Project).filter(Project.id == project_id).first()
     if not p:
         raise HTTPException(status_code=404, detail="Project not found")
+    if user.role and user.role.name == "validator":
+        if p.id not in {x.id for x in user.projects}:
+            raise HTTPException(status_code=403, detail="Not permitted")
+        redact = True
+    else:
+        redact = False
     db.query(Project).update({Project.is_default: False})
     p.is_default = True
     db.commit()
-    result = _project_to_dict(p)
+    result = _project_to_dict(p, redact=redact)
     result["data_warning"] = _load_project_data(project_id)
-    _audit(db, None, "project.activate", f"project={p.name}", request)
+    _audit(db, user.id, "project.activate", f"project={p.name}", request)
     return result
 
 
 @router.delete("/api/projects/{project_id}", status_code=204)
-def delete_project(project_id: int, request: Request, db: Session = Depends(get_db)) -> None:
+def delete_project(
+    project_id: int,
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> None:
+    if not user.role or user.role.name not in ("super_admin", "admin"):
+        raise HTTPException(status_code=403, detail="Not permitted")
     p = db.query(Project).filter(Project.id == project_id).first()
     if not p:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -302,14 +370,17 @@ def delete_project(project_id: int, request: Request, db: Session = Depends(get_
     name = p.name
     db.delete(p)
     db.commit()
-    _audit(db, None, "project.delete", f"project={name}", request)
+    _audit(db, user.id, "project.delete", f"project={name}", request)
 
 
 @router.get("/api/audit-log")
 def list_audit(
     limit: int = Query(100, ge=1, le=1000),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[dict]:
+    if not user.role or user.role.name not in ("super_admin", "admin"):
+        raise HTTPException(status_code=403, detail="Not permitted")
     rows = db.query(AuditLog).order_by(AuditLog.created_at.desc()).limit(limit).all()
     out: list[dict] = []
     for r in rows:

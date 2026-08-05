@@ -154,6 +154,16 @@ class ValidationDecision(Base):
     decided_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
+class ValidatorFlag(Base):
+    __tablename__ = "validator_flags"
+    id = Column(Integer, primary_key=True)
+    record_uuid = Column(String(128), index=True, nullable=False)
+    flag = Column(String(200), nullable=False)
+    note = Column(Text, nullable=True)
+    added_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    added_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
 class AppSetting(Base):
     __tablename__ = "app_settings"
     id = Column(Integer, primary_key=True)

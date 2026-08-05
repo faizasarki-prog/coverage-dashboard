@@ -42,11 +42,135 @@ WEALTH_COLS = [
 ]
 
 
+# ─── Robust column resolution ───────────────────────────────────
+# Kobo form labels get reworded between rounds (e.g. the MDA date range or the
+# ${child_names11} → child ${child_idd} variable), which silently zeroes KPIs
+# when columns are matched by exact name only. `find_col` matches on the stable
+# question number ("Q86", "Q90", …) plus keyword overlap, then every matched
+# column is RENAMED to its canonical constant below so the rest of the pipeline
+# needs no changes.
+
+def _norm_col(s) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", str(s).strip().lower())
+
+
+def _words(s, min_len: int = 3) -> list[str]:
+    return re.findall(r"[a-z]{%d,}" % min_len, _norm_col(s))
+
+
+def _qnum(s: str) -> str | None:
+    m = re.match(r"\s*(q\d+)", _norm_col(s))
+    return m.group(1) if m else None
+
+
+def _head(s: str) -> str:
+    return _norm_col(str(s).split("/")[0].split("\\")[0])
+
+
+def find_col(df, name, must_not_contain=()):
+    """Find the column in `df` that best matches a (possibly reworded) label.
+
+    - Exact normalized match wins immediately.
+    - If the label carries a question number (e.g. "Q90."), only columns whose
+      question head starts with that number are considered, then the one sharing
+      the most words wins (ties go to the first / base question column).
+    - Otherwise the column with the greatest keyword overlap is returned.
+    - Columns whose names contain any `must_not_contain` fragment (e.g. the
+      'Confirm…' columns, which are wiped when a Kobo record is edited) are
+      never matched.
+    """
+    name = str(name)
+    norm_target = _norm_col(name)
+    qnum = _qnum(name)
+    target_words = set(_words(name))
+    best, best_score = None, -1
+    for col in df.columns:
+        col_str = str(col)
+        norm = _norm_col(col_str)
+        if any(ex in norm for ex in must_not_contain):
+            continue
+        if norm == norm_target:
+            return col
+        if qnum:
+            head = _head(col_str)
+            if not head.startswith(qnum):
+                continue
+            score = 500 + len(target_words & set(_words(head)))
+        else:
+            score = len(target_words & set(_words(col_str)))
+        if score > best_score:
+            best, best_score = col, score
+    return best
+
+
+def _build_rules():
+    rules = {
+        COL_CONSENT: (COL_CONSENT, ()),
+        COL_LGA: (COL_LGA, ()),
+        COL_WARD: (COL_WARD, ()),
+        COL_COMMUNITY: (COL_COMMUNITY, ("confirm",)),
+        COL_SETTLEMENT_TYPE: (COL_SETTLEMENT_TYPE, ()),
+        COL_HH_CODE: (COL_HH_CODE, ()),
+        COL_SUBMISSION_TIME: (COL_SUBMISSION_TIME, ()),
+        COL_UUID: (COL_UUID, ()),
+        COL_RA: (COL_RA, ()),
+        COL_LAT: (COL_LAT, ()),
+        COL_LNG: (COL_LNG, ()),
+        COL_PRECISION: (COL_PRECISION, ()),
+        COL_CDD_VISIT: (COL_CDD_VISIT, ()),
+        COL_DATE: (COL_DATE, ()),
+    }
+    for w in WEALTH_COLS:
+        rules[w] = (w, ())
+    return rules
+
+
+COV_RULES = _build_rules()
+
+# child_info / child_infoo have different schemas; the age field only exists in
+# child_info while the Q88 "child name and age" label lives in child_infoo.
+CHILD_INFO_RULES = {
+    COL_CHILD_AGE: (COL_CHILD_AGE, ("q88",)),  # the Q88 label also contains "age"
+    COL_IS_ELIGIBLE: (COL_IS_ELIGIBLE, ()),
+}
+
+CHILD_INFOO_RULES = {
+    COL_CHILD_NAME: (COL_CHILD_NAME, ()),
+    COL_CHILD_SEX: (COL_CHILD_SEX, ()),
+    COL_OFFERED_AZM: (COL_OFFERED_AZM, ()),
+    COL_NOT_OFFERED_REASON: (COL_NOT_OFFERED_REASON, ()),
+    COL_SWALLOWED_AZM: (COL_SWALLOWED_AZM, ()),
+    COL_VACC_CARD: (COL_VACC_CARD, ()),
+    COL_CHILD_CODE: (COL_CHILD_CODE, ()),
+    COL_IS_ELIGIBLE: (COL_IS_ELIGIBLE, ()),
+}
+
+
+def _resolve_columns(df, rules):
+    for canon, (candidate, exclude) in rules.items():
+        if canon in df.columns:
+            continue
+        found = find_col(df, candidate, must_not_contain=exclude)
+        if found is not None:
+            df.rename(columns={found: canon}, inplace=True)
+
+
+def _read_sheet(path, sheet) -> pd.DataFrame:
+    try:
+        return pd.read_excel(path, sheet_name=sheet, dtype=str)
+    except Exception as e:
+        print(f"[data_processor] could not read sheet {sheet!r}: {e}")
+        return pd.DataFrame()
+
+
 def load_all_data(path: str | None = None):
     path = path or DATA_PATH
-    cov = pd.read_excel(path, sheet_name=0, dtype=str)
-    child_info = pd.read_excel(path, sheet_name='child_info', dtype=str)
-    child_eligible = pd.read_excel(path, sheet_name='child_infoo', dtype=str)
+    cov = _read_sheet(path, 0)
+    child_info = _read_sheet(path, 'child_info')
+    child_eligible = _read_sheet(path, 'child_infoo')
+    _resolve_columns(cov, COV_RULES)
+    _resolve_columns(child_info, CHILD_INFO_RULES)
+    _resolve_columns(child_eligible, CHILD_INFOO_RULES)
     return cov, child_info, child_eligible
 
 
@@ -164,10 +288,41 @@ def compute_dq_metrics(cov, child_info, child_eligible):
     dq['dup_household_count'] = int(dup_hh[COL_HH_CODE].nunique()) if len(dup_hh) > 0 else 0
 
     # DQ-02: Repeated Child Selection (same child selected twice in same household)
+    # Child rows live on the child_eligible sheet and only carry a per-household
+    # sequential code (unique_code2). The household identity is derived either from
+    # a household code column on the sheet itself or by joining child_eligible's
+    # _parent_index back to the household's _index -> unique_code on the cov sheet.
+    # A child is repeated if the same child code appears twice, or if the same
+    # Q88 child name + age is entered twice, within the same household.
     rep_child_count = 0
-    if COL_CHILD_CODE in child_eligible.columns and COL_HH_CODE in child_eligible.columns:
-        dup_child_hh = child_eligible[child_eligible.duplicated(subset=[COL_HH_CODE, COL_CHILD_CODE], keep=False)]
-        rep_child_count = int(len(dup_child_hh))
+    rep_mask: pd.Series | None = None
+    if COL_CHILD_CODE in child_eligible.columns or COL_CHILD_NAME in child_eligible.columns:
+        ce = child_eligible.copy()
+        # Household identity: the submission uuid uniquely identifies one filled
+        # questionnaire, so a child repeated across two submissions of the same
+        # household is a duplicate-child-ID case (DQ-05), not a repeated
+        # selection within the same questionnaire.
+        ident: pd.Series | None = None
+        for cand in ("_submission__uuid", "_submission_meta/rootUuid", "_uuid"):
+            if cand in ce.columns:
+                ident = ce[cand].astype(str).str.strip()
+                break
+        if ident is None and COL_HH_CODE in ce.columns:
+            ident = ce[COL_HH_CODE].astype(str).str.strip()
+        if ident is None and "_parent_index" in ce.columns and COL_HH_CODE in cov.columns and "_index" in cov.columns:
+            idx2code = dict(
+                zip(pd.to_numeric(cov["_index"], errors="coerce"),
+                    cov[COL_HH_CODE].astype(str).str.strip())
+            )
+            pidx = pd.to_numeric(ce["_parent_index"], errors="coerce")
+            ident = pidx.map(idx2code).fillna(ce["_parent_index"].astype(str).str.strip())
+        if ident is not None:
+            rep_mask = pd.Series(False, index=ce.index)
+            if COL_CHILD_CODE in ce.columns:
+                rep_mask = rep_mask | (ident + "|" + ce[COL_CHILD_CODE].astype(str).str.strip()).duplicated(keep=False)
+            if COL_CHILD_NAME in ce.columns:
+                rep_mask = rep_mask | (ident + "|" + ce[COL_CHILD_NAME].astype(str).str.strip()).duplicated(keep=False)
+            rep_child_count = int(rep_mask.sum())
     dq['rep_child_selection'] = rep_child_count
 
     # DQ-03: Active Research Assistants
@@ -185,11 +340,15 @@ def compute_dq_metrics(cov, child_info, child_eligible):
         ineligible_count = int((age_numeric >= 60).sum())
     dq['ineligible_children'] = ineligible_count
 
-    # DQ-05: Duplicate Child Detection
+    # DQ-05: Duplicate Child Detection — the same child ID (unique_code2)
+    # submitted more than once anywhere in the dataset, regardless of household.
     if COL_CHILD_CODE in child_eligible.columns:
-        dup_child = child_eligible[child_eligible.duplicated(subset=[COL_CHILD_CODE], keep=False)]
-        dq['dup_children'] = len(dup_child)
-        dq['dup_child_count'] = int(dup_child[COL_CHILD_CODE].nunique()) if len(dup_child) > 0 else 0
+        codes = child_eligible[COL_CHILD_CODE].astype(str).str.strip().replace({"nan": "", "None": ""})
+        dup_vals = codes[codes != ""].value_counts()
+        dup_ids = dup_vals[dup_vals > 1].index
+        dup_child = child_eligible[codes.isin(dup_ids)].copy()
+        dq['dup_children'] = int(len(dup_child))
+        dq['dup_child_count'] = int(len(dup_ids))
     else:
         dq['dup_children'] = 0
         dq['dup_child_count'] = 0

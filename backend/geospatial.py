@@ -50,6 +50,25 @@ def _project_cond():
     return GpsPoint.project_id.is_(None)
 
 
+def _norm_set(lgas: list[str] | None) -> set[str]:
+    if not lgas:
+        return set()
+    return {str(x).strip().upper() for x in lgas if str(x).strip()}
+
+
+def _scoped_rows(rows: list, lgas: list[str] | None = None) -> list:
+    """Filter GPS rows to the allowed LGAs (by reported LGA, else matched LGA)."""
+    norm = _norm_set(lgas)
+    if not norm:
+        return rows
+    out = []
+    for r in rows:
+        rep = _norm(r.reported_lga)
+        if rep in norm or (not rep and _norm(r.matched_lga) in norm):
+            out.append(r)
+    return out
+
+
 def _project_geo_dir(project_id: int) -> Path:
     target = GEO_DIR / f"p{project_id}"
     target.mkdir(parents=True, exist_ok=True)
@@ -274,11 +293,17 @@ def rebuild_gps_points_table(cov: pd.DataFrame, project_id: int | None = None) -
         session.close()
 
 
-def summary() -> dict:
+def summary(lgas: list[str] | None = None) -> dict:
     session = SessionLocal()
     try:
         from sqlalchemy import func
         cond = _project_cond()
+        norm = _norm_set(lgas)
+        if norm:
+            lga_col = func.upper(func.trim(GpsPoint.reported_lga))
+            cond = (GpsPoint.project_id == _active_project_id) if _active_project_id is not None else (GpsPoint.project_id.is_(None))
+            from sqlalchemy import and_
+            cond = and_(cond, lga_col.in_(sorted(norm)))
         total = session.query(func.count(GpsPoint.id)).filter(cond).scalar() or 0
         outside_lga = session.query(func.count(GpsPoint.id)).filter(cond, GpsPoint.in_lga == False).scalar() or 0  # noqa: E712
         outside_ward = session.query(func.count(GpsPoint.id)).filter(cond, GpsPoint.in_ward == False).scalar() or 0  # noqa: E712
@@ -306,28 +331,31 @@ def summary() -> dict:
         session.close()
 
 
-def _aggregate_stats() -> dict:
+def _aggregate_stats(lgas: list[str] | None = None) -> dict:
     session = SessionLocal()
     try:
-        from sqlalchemy import func
-        cond = _project_cond()
+        from sqlalchemy import and_, func
+        norm = _norm_set(lgas)
+        base = _project_cond()
+        if norm:
+            base = and_(base, func.upper(func.trim(GpsPoint.reported_lga)).in_(sorted(norm)))
         lga_pts = dict(session.query(GpsPoint.matched_lga, func.count(GpsPoint.id))
-                       .filter(cond, GpsPoint.matched_lga.isnot(None))
+                       .filter(base, GpsPoint.matched_lga.isnot(None))
                        .group_by(GpsPoint.matched_lga).all())
         ward_pts: dict = {}
         for lga, ward, cnt in session.query(GpsPoint.matched_lga, GpsPoint.matched_ward, func.count(GpsPoint.id))\
-                .filter(cond, GpsPoint.matched_lga.isnot(None), GpsPoint.matched_ward.isnot(None))\
+                .filter(base, GpsPoint.matched_lga.isnot(None), GpsPoint.matched_ward.isnot(None))\
                 .group_by(GpsPoint.matched_lga, GpsPoint.matched_ward).all():
             ward_pts[(_norm(lga), _norm(ward))] = cnt
         visited_settlements: set = set()
         for lga, ward, sname in session.query(GpsPoint.matched_lga, GpsPoint.matched_ward, GpsPoint.matched_settlement)\
-                .filter(cond, GpsPoint.matched_settlement.isnot(None)).all():
+                .filter(base, GpsPoint.matched_settlement.isnot(None)).all():
             visited_settlements.add((_norm(lga), _norm(ward), _norm(sname)))
-        reported_lgas = {_norm(x) for x, in session.query(GpsPoint.reported_lga).filter(cond, GpsPoint.reported_lga.isnot(None)).distinct().all()}
+        reported_lgas = {_norm(x) for x, in session.query(GpsPoint.reported_lga).filter(base, GpsPoint.reported_lga.isnot(None)).distinct().all()}
         reported_wards = {(_norm(l), _norm(w)) for l, w in session.query(GpsPoint.reported_lga, GpsPoint.reported_ward)
-                          .filter(cond, GpsPoint.reported_lga.isnot(None), GpsPoint.reported_ward.isnot(None)).distinct().all()}
+                          .filter(base, GpsPoint.reported_lga.isnot(None), GpsPoint.reported_ward.isnot(None)).distinct().all()}
         reported_settlements = {(_norm(l), _norm(w), _norm(s)) for l, w, s in session.query(GpsPoint.reported_lga, GpsPoint.reported_ward, GpsPoint.reported_community)
-                                .filter(cond, GpsPoint.reported_community.isnot(None)).distinct().all()}
+                                .filter(base, GpsPoint.reported_community.isnot(None)).distinct().all()}
         return {
             "lga_pts": {_norm(k): v for k, v in lga_pts.items()},
             "ward_pts": ward_pts,
@@ -345,9 +373,13 @@ def _lga_total_settlements(lga_name: str) -> int:
     return sum(1 for _g, a, _p in _settlement_shapes if _norm(a.get("lga_name")) == n)
 
 
-def boundaries_as_geojson(level: str = "lga") -> dict:
-    stats = _aggregate_stats()
+def boundaries_as_geojson(level: str = "lga", lgas: list[str] | None = None) -> dict:
+    norm = _norm_set(lgas)
+    stats = _aggregate_stats(lgas=lgas)
     features: list[dict] = []
+
+    def _allowed_lga(name: str) -> bool:
+        return not norm or _norm(name) in norm
 
     if level == "lga":
         total_settle_by_lga: dict = {}
@@ -361,6 +393,8 @@ def boundaries_as_geojson(level: str = "lga") -> dict:
         for geom, attrs, _p in _lga_shapes:
             name = attrs.get("lganame", "")
             n = _norm(name)
+            if not _allowed_lga(name):
+                continue
             pts = stats["lga_pts"].get(n, 0)
             has_data = n in stats["reported_lgas"] or pts > 0
             is_planned = n in PLANNED_LGAS
@@ -398,6 +432,8 @@ def boundaries_as_geojson(level: str = "lga") -> dict:
         for geom, attrs, _p in _ward_shapes:
             lga = attrs.get("lganame", "")
             ward = attrs.get("wardname", "")
+            if not _allowed_lga(lga):
+                continue
             key = (_norm(lga), _norm(ward))
             pts = stats["ward_pts"].get(key, 0)
             in_reported = key in stats["reported_wards"] or pts > 0
@@ -429,6 +465,8 @@ def boundaries_as_geojson(level: str = "lga") -> dict:
             lga = attrs.get("lga_name", "")
             ward = attrs.get("ward_name", "")
             sname = attrs.get("settlement", "")
+            if not _allowed_lga(lga):
+                continue
             key = (_norm(lga), _norm(ward), _norm(sname))
             in_reported = key in stats["reported_settlements"]
             visited = key in stats["visited_settlements"]
@@ -488,15 +526,15 @@ def _issue_counts_by(group_cols: list, filters: list = None) -> dict:
         session.close()
 
 
-def lga_stats() -> list[dict]:
-    stats = _aggregate_stats()
+def lga_stats(lgas: list[str] | None = None) -> list[dict]:
+    norm = _norm_set(lgas)
+    stats = _aggregate_stats(lgas=lgas)
     from sqlalchemy import func
     session = SessionLocal()
     try:
-        rows_pts = session.query(GpsPoint).filter(_project_cond()).all()
+        rows_pts = _scoped_rows(session.query(GpsPoint).filter(_project_cond()).all(), lgas)
     finally:
         session.close()
-
     dup_key_map: dict = {}
     for r in rows_pts:
         k = (round(r.lat, 6), round(r.lng, 6))
@@ -518,6 +556,8 @@ def lga_stats() -> list[dict]:
     for _g, a, _p in _lga_shapes:
         name = a.get("lganame", "")
         n = _norm(name)
+        if norm and n not in norm:
+            continue
         pts = total_by_lga.get(n, 0)
         iss = issues_by_lga.get(n, 0)
         issues_pct = round((iss / pts * 100), 0) if pts else 0
@@ -533,7 +573,7 @@ def lga_stats() -> list[dict]:
     return rows
 
 
-def _wards_or_settlements(level: str, lga: str, ward: str | None = None) -> list[dict]:
+def _wards_or_settlements(level: str, lga: str, ward: str | None = None, lgas: list[str] | None = None) -> list[dict]:
     session = SessionLocal()
     try:
         q = session.query(GpsPoint).filter(_project_cond(), GpsPoint.reported_lga.isnot(None))
@@ -542,6 +582,7 @@ def _wards_or_settlements(level: str, lga: str, ward: str | None = None) -> list
         session.close()
     if ward:
         rows = [r for r in rows if _norm(r.reported_ward) == _norm(ward)]
+    rows = _scoped_rows(rows, lgas)
 
     dup_map: dict = {}
     for r in rows:
@@ -577,18 +618,18 @@ def _wards_or_settlements(level: str, lga: str, ward: str | None = None) -> list
     return out
 
 
-def ward_stats(lga: str) -> list[dict]:
-    return _wards_or_settlements("ward", lga)
+def ward_stats(lga: str, lgas: list[str] | None = None) -> list[dict]:
+    return _wards_or_settlements("ward", lga, lgas=lgas)
 
 
-def settlement_stats(lga: str, ward: str) -> list[dict]:
-    return _wards_or_settlements("settlement", lga, ward)
+def settlement_stats(lga: str, ward: str, lgas: list[str] | None = None) -> list[dict]:
+    return _wards_or_settlements("settlement", lga, ward, lgas)
 
 
-def all_points() -> list[dict]:
+def all_points(lgas: list[str] | None = None) -> list[dict]:
     session = SessionLocal()
     try:
-        rows = session.query(GpsPoint).filter(_project_cond()).all()
+        rows = _scoped_rows(session.query(GpsPoint).filter(_project_cond()).all(), lgas)
         return [{
             "lat": r.lat, "lng": r.lng,
             "reported_lga": r.reported_lga,
@@ -606,10 +647,10 @@ def all_points() -> list[dict]:
         session.close()
 
 
-def issues_by_ra() -> list[dict]:
+def issues_by_ra(lgas: list[str] | None = None) -> list[dict]:
     session = SessionLocal()
     try:
-        rows = session.query(GpsPoint).filter(_project_cond()).all()
+        rows = _scoped_rows(session.query(GpsPoint).filter(_project_cond()).all(), lgas)
     finally:
         session.close()
     dup_map: dict = {}
@@ -636,7 +677,7 @@ def issues_by_ra() -> list[dict]:
     return out
 
 
-def flagged_points(limit: int = 500) -> list[dict]:
+def flagged_points(limit: int = 500, lgas: list[str] | None = None) -> list[dict]:
     session = SessionLocal()
     try:
         q = session.query(GpsPoint).filter(
@@ -648,6 +689,7 @@ def flagged_points(limit: int = 500) -> list[dict]:
             (GpsPoint.ward_match == False) |
             (GpsPoint.settlement_match == False)
         ).limit(limit).all()
+        q = _scoped_rows(q, lgas)
         return [{
             "id": p.id,
             "uuid": p.uuid,

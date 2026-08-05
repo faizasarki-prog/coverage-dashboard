@@ -364,6 +364,9 @@ body.sidebar-collapsed .sidebar-toggle .bi { transform: rotate(180deg); }
 /* Validators — polished cell styles used by the new table */
 .val-flag-chip { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; background: #FEE2E2; color: #B91C1C; margin: 1px 2px; }
 .val-flag-chip.warn { background: #FEF3C7; color: #B45309; }
+.val-flag-chip.locked { border: 1px dashed #B91C1C; }
+.val-flag-chip.added { background: #E0E7FF; color: #3730A3; border: 1px dashed #6366F1; }
+.val-flag-chip.none { background: #DCFCE7; color: #166534; }
 .val-row-actions { display: inline-flex; gap: 4px; }
 .val-icon-btn { width: 26px; height: 26px; border-radius: 6px; border: 1px solid var(--border); background: #fff; color: var(--text-muted); display: inline-flex; align-items: center; justify-content: center; font-size: 12px; }
 .val-icon-btn:hover { color: var(--ink); border-color: var(--olive); }
@@ -870,6 +873,58 @@ body.filter-open .chat-fab, body.filter-open .chat-panel { display: none !import
     </div>
   </div>
 
+  <!-- ── Validator flag-edit modal ───────────────────────────── -->
+  <div id="valEditModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2100;align-items:center;justify-content:center">
+    <div style="background:#fff;border-radius:14px;padding:24px 28px;width:92%;max-width:680px;box-shadow:0 8px 32px rgba(0,0,0,.18);max-height:92vh;overflow:auto">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <h3 style="font-size:16px;font-weight:800;color:var(--ink);display:flex;align-items:center;gap:8px">
+          <i class="bi bi-pencil-square" style="color:var(--olive)"></i> Flag Record <span id="valEditCode" style="font-weight:700;color:var(--olive)"></span>
+        </h3>
+        <button onclick="closeValEdit()" style="background:none;border:none;font-size:19px;cursor:pointer;color:var(--text-muted)">✕</button>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px 14px;background:var(--sand);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:13px">
+        <div><span style="font-weight:700;color:var(--text-muted)">LGA:</span> <span id="valEditLga">—</span></div>
+        <div><span style="font-weight:700;color:var(--text-muted)">Ward:</span> <span id="valEditWard">—</span></div>
+        <div><span style="font-weight:700;color:var(--text-muted)">Community:</span> <span id="valEditCommunity">—</span></div>
+        <div><span style="font-weight:700;color:var(--text-muted)">RA:</span> <span id="valEditRa">—</span></div>
+        <div><span style="font-weight:700;color:var(--text-muted)">Head:</span> <span id="valEditHead">—</span></div>
+        <div><span style="font-weight:700;color:var(--text-muted)">Child:</span> <span id="valEditChild">—</span></div>
+      </div>
+
+      <div style="margin-bottom:16px">
+        <label style="font-size:13px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:6px">
+          <i class="bi bi-shield-lock" style="color:#B91C1C"></i> System-detected errors (cannot be removed)
+        </label>
+        <div id="valEditSystemChips" style="display:flex;flex-wrap:wrap;gap:4px"></div>
+      </div>
+
+      <div>
+        <label style="font-size:13px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:6px">
+          <i class="bi bi-plus-circle" style="color:#3730A3"></i> Add errors to this record
+        </label>
+        <div id="valEditFlagOptions" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px;margin-bottom:12px"></div>
+        <div style="margin-bottom:12px">
+          <label style="font-size:12.5px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:4px">Other error (custom text)</label>
+          <input id="valEditOther" type="text" placeholder="e.g. Child age on record contradicts vaccine card"
+                 style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;outline:none" />
+        </div>
+        <div>
+          <label style="font-size:12.5px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:4px">Note</label>
+          <textarea id="valEditNote" rows="2" placeholder="Optional note about why this record is flagged"
+                    style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;resize:vertical;outline:none"></textarea>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end">
+        <button onclick="closeValEdit()" style="padding:8px 18px;border:1px solid var(--border);border-radius:8px;background:var(--white);font-size:13px;cursor:pointer">Cancel</button>
+        <button onclick="saveValEdit()" style="padding:8px 20px;border:none;border-radius:8px;background:var(--olive);color:#fff;font-size:13px;font-weight:700;cursor:pointer">
+          <i class="bi bi-flag"></i> Save Errors
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- ── Filter drawer ──────────────────────────────────────── -->
   <div class="drawer-overlay" id="drawerOverlay" onclick="closeFilterDrawer()"></div>
   <div class="filter-drawer" id="filterDrawer">
@@ -1063,7 +1118,7 @@ body.filter-open .chat-fab, body.filter-open .chat-panel { display: none !import
         <button class="sidebar-toggle" id="sidebarToggle"><i class="bi bi-layout-sidebar-inset"></i></button>
         <div>
           <div class="topbar-title">Coverage Survey Dashboard</div>
-          <div class="topbar-subtitle">SARMAAN II — Sokoto, Nigeria</div>
+          <div class="topbar-subtitle" id="topbarSubtitle">SARMAAN II — Sokoto, Nigeria</div>
         </div>
       </div>
       <div class="topbar-actions">
@@ -1369,7 +1424,7 @@ body.filter-open .chat-fab, body.filter-open .chat-panel { display: none !import
             <div class="stat-icon green"><i class="bi bi-geo-alt-fill"></i></div>
             <div class="eyebrow">Settlement Mismatch</div>
             <div class="n" id="qc-settlement">-</div>
-            <div class="d">LGA / Ward / community conflict</div>
+            <div class="d">Wealth answers contradict urban/rural settlement type</div>
           </div>
           <div class="stat">
             <div class="stat-icon ink"><i class="bi bi-clipboard2-check-fill"></i></div>
@@ -1391,6 +1446,7 @@ body.filter-open .chat-fab, body.filter-open .chat-panel { display: none !import
             <table id="qcByEnumTable">
               <thead><tr>
                 <th class="qc-sort" data-col="enumerator">Research Assistant <span class="qc-arrow">⇅</span></th>
+                <th class="qc-sort" data-col="lga">LGA(s) <span class="qc-arrow">⇅</span></th>
                 <th class="qc-sort" data-col="total_records"      style="text-align:right">Records <span class="qc-arrow">⇅</span></th>
                 <th class="qc-sort" data-col="duplicate_hh"       style="text-align:right">Duplicate HH <span class="qc-arrow">⇅</span></th>
                 <th class="qc-sort" data-col="settlement_mismatch" style="text-align:right">Settlement Mismatch <span class="qc-arrow">⇅</span></th>
@@ -1399,7 +1455,7 @@ body.filter-open .chat-fab, body.filter-open .chat-panel { display: none !import
                 <th class="qc-sort" data-col="records_with_error" style="text-align:right">Records w/ Error <span class="qc-arrow">⇅</span></th>
                 <th class="qc-sort" data-col="error_pct"          style="text-align:right">Error % <span class="qc-arrow">↓</span></th>
               </tr></thead>
-              <tbody id="qcByEnumBody"><tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:20px">Loading…</td></tr></tbody>
+              <tbody id="qcByEnumBody"><tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:20px">Loading…</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -1413,7 +1469,7 @@ body.filter-open .chat-fab, body.filter-open .chat-panel { display: none !import
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px;flex-wrap:wrap" id="supBreadcrumb"></div>
 
         <div class="section">
-          <div class="section-head"><h2>Overview</h2><span class="count">4 metrics</span></div>
+          <div class="section-head"><h2>Overview</h2><span class="count">Supervision score and error rate per research assistant</span></div>
           <hr class="section-hr">
           <div class="stat-row">
             <div class="stat">
@@ -1509,7 +1565,7 @@ body.filter-open .chat-fab, body.filter-open .chat-panel { display: none !import
         </div>
 
         <div class="section">
-          <div class="section-head"><h2>GPS coverage</h2><span class="count">4 metrics</span></div>
+          <div class="section-head"><h2>GPS coverage</h2><span class="count">GPS point totals and boundary quality indicators</span></div>
           <hr class="section-hr">
           <div class="stat-row">
             <div class="stat">
@@ -1793,8 +1849,24 @@ body.filter-open .chat-fab, body.filter-open .chat-panel { display: none !import
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 /* ── API ──────────────────────────────────────────────────────────── */
-async function api(path) {
-  const res = await fetch(path);
+function authHeaders(extra) {
+  const h = Object.assign({}, extra || {});
+  const token = localStorage.getItem('sarmaan_token');
+  if (token) h['Authorization'] = 'Bearer ' + token;
+  return h;
+}
+function authRedirectIfNeeded(res) {
+  if (res.status === 401) {
+    localStorage.removeItem('sarmaan_token');
+    localStorage.removeItem('sarmaan_user');
+    window.location.replace('/login');
+    return true;
+  }
+  return false;
+}
+async function api(path, opts = {}) {
+  const res = await fetch(path, Object.assign({}, opts, { headers: authHeaders(opts.headers) }));
+  if (authRedirectIfNeeded(res)) throw new Error('unauthenticated');
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
@@ -1893,6 +1965,7 @@ function hideLoading() {
 
 function reloadActivePage() {
   const page = document.querySelector('.nav-item.active')?.dataset.page || 'home';
+  if (page === 'validators') { loadValidators(); return; }
   loadAll();
   if (page === 'completion') loadCompletion();
   if (page === 'quality') loadQuality();
@@ -2320,7 +2393,8 @@ document.querySelectorAll('.nav-item').forEach(item => {
 // ─── Admin Panel ────────────────────────────────────────────
 async function adminApi(path, opts = {}) {
   const headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
-  const res = await fetch(path, Object.assign({}, opts, { headers }));
+  const res = await fetch(path, Object.assign({}, opts, { headers: authHeaders(headers) }));
+  if (authRedirectIfNeeded(res)) throw new Error('unauthenticated');
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.detail || ('HTTP ' + res.status));
@@ -2426,7 +2500,7 @@ async function admSaveEditLga() {
   err.style.display = 'none';
   try {
     const res = await fetch('/api/users/' + _admEditingUserId + '/lgas', {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      method: 'PUT', headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ lgas: [..._admEditingLgas] }),
     });
     const d = await res.json();
@@ -2607,7 +2681,7 @@ async function admSubmitCreateUser(ev) {
     project_ids: [..._admProjChosen],
   };
   try {
-    const res = await fetch('/api/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const res = await fetch('/api/users', { method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(body) });
     const data = await res.json();
     if (!res.ok) { err.textContent = data.detail || 'Create failed.'; err.style.display = 'block'; return false; }
     if (data.invite_url) {
@@ -2626,7 +2700,7 @@ async function admSubmitCreateUser(ev) {
 async function admDeleteUser(id, email) {
   if (!confirm(`Delete user ${email}?`)) return;
   try {
-    const res = await fetch('/api/users/' + id, { method: 'DELETE' });
+    const res = await fetch('/api/users/' + id, { method: 'DELETE', headers: authHeaders() });
     if (!res.ok && res.status !== 204) {
       const d = await res.json().catch(() => ({}));
       alert(d.detail || 'Delete failed');
@@ -2698,7 +2772,7 @@ async function admSubmitCreateProject(ev) {
     const geo  = document.getElementById('admProjGeoZip').files[0];
     if (plan) fd.append('planning_file', plan);
     if (geo)  fd.append('geospatial_zip', geo);
-    const res = await fetch('/api/projects', { method: 'POST', body: fd });
+    const res = await fetch('/api/projects', { method: 'POST', headers: authHeaders(), body: fd });
     const d = await res.json();
     if (!res.ok) throw new Error(d.detail || 'Create failed');
     admCloseCreateProject();
@@ -2712,7 +2786,7 @@ async function admSubmitCreateProject(ev) {
 
 async function admActivateProject(id) {
   try {
-    const r = await fetch(`/api/projects/${id}/activate`, { method: 'POST' });
+    const r = await fetch(`/api/projects/${id}/activate`, { method: 'POST', headers: authHeaders() });
     const d = await r.json();
     if (!r.ok) throw new Error(d.detail || 'Failed');
     if (d.data_warning) toast('Warning: ' + d.data_warning, true);
@@ -2723,7 +2797,7 @@ async function admActivateProject(id) {
 async function admDeleteProject(id, name) {
   if (!confirm(`Delete project "${name}"? Uploaded files will be removed.`)) return;
   try {
-    const r = await fetch(`/api/projects/${id}`, { method: 'DELETE' });
+    const r = await fetch(`/api/projects/${id}`, { method: 'DELETE', headers: authHeaders() });
     if (!r.ok && r.status !== 204) { const d = await r.json().catch(()=>({})); throw new Error(d.detail || 'Delete failed'); }
     toast(`Deleted "${name}".`);
     adminLoadProjects();
@@ -2740,6 +2814,8 @@ async function _loadProjectSwitcher() {
     if (!active) { wrap.style.display = 'none'; return; }
     const label = document.getElementById('projectSwitcherLabel');
     if (label) label.textContent = active.name;
+    const sub = document.getElementById('topbarSubtitle');
+    if (sub) sub.textContent = `SARMAAN II — ${(active.state || 'Nigeria')}, Nigeria`;
     const menu = document.getElementById('projectSwitcherMenu');
     if (menu) {
       menu.innerHTML = projects.map(p => `
@@ -2756,7 +2832,7 @@ async function _loadProjectSwitcher() {
 }
 async function _switchProject(id) {
   try {
-    const r = await fetch(`/api/projects/${id}/activate`, { method: 'POST' });
+    const r = await fetch(`/api/projects/${id}/activate`, { method: 'POST', headers: authHeaders() });
     if (!r.ok) throw new Error('Switch failed');
     const d = await r.json();
     if (d.data_warning) toast('Warning: ' + d.data_warning, true);
@@ -2797,7 +2873,7 @@ async function admSyncNow() {
   const btn = document.getElementById('admSyncBtn');
   if (btn) { btn.disabled = true; btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Syncing…'; }
   try {
-    const r = await fetch('/api/data/refresh', { method: 'POST' });
+    const r = await fetch('/api/data/refresh', { method: 'POST', headers: authHeaders() });
     const d = await r.json();
     if (!r.ok) throw new Error(d.detail || 'Sync failed');
     toast(`Synced ${(d.rows || 0).toLocaleString()} household rows from ${d.source}.`);
@@ -2945,7 +3021,7 @@ function _qcDrawTable() {
   const body = document.getElementById('qcByEnumBody');
   if (!body) return;
   if (!_qcRaData.length) {
-    body.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:20px">No RA data</td></tr>';
+    body.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:20px">No RA data</td></tr>';
     return;
   }
   const sorted = _qcRaData.slice().sort((a, b) => {
@@ -2969,6 +3045,7 @@ function _qcDrawTable() {
     const pctBg    = pct >= 20 ? '#FEE2E2' : pct >= 10 ? '#FEF3C7' : '#DCFCE7';
     return `<tr>
       <td><strong>${_esc(r.enumerator)}</strong></td>
+      <td>${_esc(r.lga || '—')}</td>
       ${cell(r.total_records)}
       ${cell(r.duplicate_hh, r.duplicate_hh > 0 ? 'color:#B91C1C;font-weight:600' : '')}
       ${cell(r.settlement_mismatch, r.settlement_mismatch > 0 ? 'color:#B91C1C;font-weight:600' : '')}
@@ -3129,20 +3206,25 @@ function _renderSupRanking(data) {
     data: {
       labels: data.map(d => d.name),
       datasets: [{
+        label: 'Score (%)',
         data: data.map(d => d.score),
-        backgroundColor: data.map(d => d.risk === 'High' ? '#B23A3Acc' : d.risk === 'Medium' ? '#D9A441cc' : '#3B6B4Ccc'),
-        borderColor: data.map(d => d.risk === 'High' ? '#B23A3A' : d.risk === 'Medium' ? '#D9A441' : '#3B6B4C'),
-        borderWidth: 1, borderRadius: 4,
+        backgroundColor: '#3B6B4C',
+        borderRadius: 6,
       }],
     },
     options: {
-      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      responsive: true, maintainAspectRatio: false,
       onClick: (_, els) => { if (els.length) _supDrillDown(data[els[0].index].name); },
       plugins: {
         legend: { display: false },
         tooltip: { callbacks: { label: ctx => { const d = data[ctx.dataIndex]; return `Score: ${d.score}% | Errors: ${d.total_errors}`; } } },
+        datalabels: { anchor: 'end', align: 'end', color: '#163628', font: { weight: 'bold', size: 13 }, formatter: v => v.toLocaleString() },
       },
-      scales: { x: { max: 100, grid: { display: false }, ticks: { callback: v => v + '%', font: { size: 9 } } }, y: { grid: { display: false }, ticks: { font: { size: 10 } } } },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 11, weight: 'bold' } } },
+        y: { display: false, beginAtZero: true },
+      },
+      layout: { padding: { top: 30 } },
     },
   });
 }
@@ -3161,15 +3243,31 @@ function _renderSupDist(data) {
     data: {
       labels: data.map(d => d.name),
       datasets: [
-        { label: 'Duplicate HH', data: data.map(d => d.dup_households || 0), backgroundColor: '#0891b2cc', borderRadius: 2 },
-        { label: 'Mock GPS', data: data.map(d => d.mock_gps || 0), backgroundColor: '#d97706cc', borderRadius: 2 },
-        { label: 'Stacked GPS', data: data.map(d => d.stacked_gps || 0), backgroundColor: '#dc2626cc', borderRadius: 2 },
+        { label: 'Duplicate HH', data: data.map(d => d.dup_households || 0), backgroundColor: '#3B6B4C', borderRadius: 6 },
+        { label: 'Mock GPS', data: data.map(d => d.mock_gps || 0), backgroundColor: '#7FA68D', borderRadius: 6 },
+        { label: 'Stacked GPS', data: data.map(d => d.stacked_gps || 0), backgroundColor: '#B9D3C3', borderRadius: 6 },
       ],
     },
     options: {
-      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { position: 'top', labels: { boxWidth: 10, font: { size: 9 } } }, tooltip: { mode: 'index', intersect: false } },
-      scales: { x: { stacked: true, grid: { display: false }, ticks: { font: { size: 9 } } }, y: { stacked: true, grid: { display: false }, ticks: { font: { size: 10 } } } },
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { mode: 'index', intersect: false },
+        datalabels: {
+          anchor: 'end', align: 'end', color: '#163628', font: { weight: 'bold', size: 13 },
+          formatter: (v, ctx) => {
+            const i = ctx.dataIndex;
+            const total = data[i].dup_households + data[i].mock_gps + data[i].stacked_gps;
+            return total > 0 ? total.toLocaleString() : '';
+          },
+          display: ctx => ctx.datasetIndex === 2,
+        },
+      },
+      scales: {
+        x: { stacked: true, grid: { display: false }, ticks: { font: { size: 11, weight: 'bold' } } },
+        y: { stacked: true, display: false, beginAtZero: true },
+      },
+      layout: { padding: { top: 30 } },
     },
   });
 }
@@ -4200,6 +4298,7 @@ function renderValFlags(_ignored) {
 }
 
 let _valStatus = 'pending';
+let _valRows = [];
 
 function valSetStatus(s) {
   _valStatus = s;
@@ -4245,19 +4344,20 @@ async function loadValidatorFlagged() {
   _valLoadSummary();
   try {
     const rows = await api('/api/validators/flagged?status=' + encodeURIComponent(_valStatus));
+    _valRows = rows;
     if (count) count.textContent = `${rows.length.toLocaleString()} record(s)`;
     if (!rows.length) {
       body.innerHTML = '<tr><td colspan="13" style="text-align:center;color:var(--text-muted);padding:20px">No records in this state.</td></tr>';
       return;
     }
     body.innerHTML = rows.map(r => {
-      const flagList = r.flags || [];
-      const chips = flagList.length
-        ? flagList.map(f => {
-            const warn = /mismatch|missing|non-eligible/i.test(f);
-            return `<span class="val-flag-chip ${warn ? 'warn' : ''}">${_esc(f)}</span>`;
-          }).join('')
-        : '<span style="color:#166534;font-size:11px">— clean —</span>';
+      const systemFlags = r.system_flags || r.flags || [];
+      const addedFlags  = (r.validator_flags || []).filter(f => !systemFlags.includes(f));
+      const chip = (f, cls, warn) => `<span class="val-flag-chip ${cls || ''} ${warn ? 'warn' : ''}">${_esc(f)}</span>`;
+      const chips = (systemFlags.length || addedFlags.length)
+        ? systemFlags.map(f => chip(f, 'locked', /mismatch|missing|non-eligible/i.test(f))).join('')
+          + addedFlags.map(f => chip(f, 'added', /mismatch|missing|non-eligible/i.test(f))).join('')
+        : '<span class="val-flag-chip none">— clean —</span>';
       return `<tr>
         <td><strong>${_esc(r.unique_code || '—')}</strong></td>
         <td>${_esc(r.lga || '—')}</td>
@@ -4283,11 +4383,92 @@ async function loadValidatorFlagged() {
   }
 }
 
-function validatorEdit(uuid) { toast('Edit for ' + uuid + ' — inline edit coming next.'); }
+const VAL_EDIT_CATEGORIES = [
+  'Duplicate HH ID',
+  'HH Gender Mismatch',
+  'Child Gender Mismatch',
+  'Education/Occupation mismatch',
+  'Settlement/Amenities mismatch',
+  'Repetitive Child',
+  'Non-eligible child',
+  'Missing vacc card',
+  'Stacked GPS',
+  'Mock GPS',
+];
+
+let _valEditUuid = null;
+
+function validatorEdit(uuid) {
+  const rec = (_valRows || []).find(r => r.uuid === uuid);
+  if (!rec) { toast('Record not found — refresh the list and retry.', true); return; }
+  _valEditUuid = uuid;
+  const set = (id, t) => { const el = document.getElementById(id); if (el) el.textContent = t; };
+  set('valEditCode', rec.unique_code || uuid);
+  set('valEditLga', rec.lga || '—');
+  set('valEditWard', rec.ward || '—');
+  set('valEditCommunity', rec.community || '—');
+  set('valEditRa', rec.ra || '—');
+  set('valEditHead', [rec.head_name, rec.head_gender].filter(Boolean).join(' · ') || '—');
+  set('valEditChild', [rec.child_name_age, rec.child_sex].filter(Boolean).join(' · ') || '—');
+
+  const sysFlags = rec.system_flags || rec.flags || [];
+  const chips = sysFlags.length
+    ? sysFlags.map(f => `<span class="val-flag-chip ${/mismatch|missing|non-eligible/i.test(f) ? 'warn' : ''}">${_esc(f)}</span>`).join('')
+    : '<span class="val-flag-chip none">— no system-detected errors —</span>';
+  const sysBox = document.getElementById('valEditSystemChips');
+  if (sysBox) sysBox.innerHTML = chips + (sysFlags.length ? '' : '');
+
+  const addBox = document.getElementById('valEditFlagOptions');
+  if (addBox) {
+    addBox.innerHTML = VAL_EDIT_CATEGORIES.map(cat => {
+      const auto = sysFlags.includes(cat);
+      return `<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:${auto ? 'var(--sand)' : '#fff'};cursor:${auto ? 'not-allowed' : 'pointer'};opacity:${auto ? 0.55 : 1}">
+        <input type="checkbox" value="${_esc(cat)}" ${auto ? 'disabled' : ''} style="accent-color:var(--olive)">
+        <span style="font-size:13px;font-weight:600;color:var(--text-body)">${_esc(cat)}</span>
+        ${auto ? '<span style="margin-left:auto;font-size:10.5px;color:#B45309;font-weight:700;text-transform:uppercase">auto-detected</span>' : ''}
+      </label>`;
+    }).join('');
+  }
+  const other = document.getElementById('valEditOther');
+  if (other) other.value = '';
+  const note = document.getElementById('valEditNote');
+  if (note) note.value = '';
+  const modal = document.getElementById('valEditModal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function closeValEdit() {
+  const modal = document.getElementById('valEditModal');
+  if (modal) modal.style.display = 'none';
+  _valEditUuid = null;
+}
+
+async function saveValEdit() {
+  const uuid = _valEditUuid;
+  if (!uuid) return;
+  const flags = [];
+  document.querySelectorAll('#valEditFlagOptions input[type=checkbox]:checked').forEach(cb => flags.push(cb.value));
+  const other = (document.getElementById('valEditOther')?.value || '').trim();
+  if (other) flags.push(other);
+  const note = (document.getElementById('valEditNote')?.value || '').trim();
+  if (!flags.length) { toast('Select at least one error to add, or type an "Other" error.', true); return; }
+  try {
+    const r = await fetch('/api/validators/' + encodeURIComponent(uuid) + '/flags', {
+      method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ flags, note }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || 'Failed');
+    toast((d.added || []).length ? `Added ${d.added.length} error(s).` : 'Errors already present on this record.');
+    closeValEdit();
+    loadValidatorFlagged();
+  } catch (e) { toast('Error: ' + e.message, true); }
+}
+
 async function _validatorDecide(uuid, status, label) {
   try {
     const r = await fetch('/api/validators/' + encodeURIComponent(uuid) + '/decision', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ status }),
     });
     const d = await r.json();
@@ -4313,7 +4494,39 @@ function validatorReject(uuid)  { _validatorDecide(uuid, 'rejected', 'Marked Not
   set('suAvatar', initial);
   set('suName', user.name || 'User');
   set('suEmail', user.email || '');
+
+  const role = (user.role || '').replace('_', '-');
+  const isAdmin = role === 'super-admin' || role === 'admin';
+  if (isAdmin) {
+    const adminNav = document.querySelector('.nav-item[data-page="admin"]');
+    if (adminNav) adminNav.style.display = 'flex';
+  }
+  if (!isAdmin) {
+    const adminNav = document.querySelector('.nav-item[data-page="admin"]');
+    if (adminNav) adminNav.style.display = 'none';
+    const projSw = document.getElementById('projectSwitcher');
+    if (projSw) projSw.style.display = 'none';
+    if (role === 'validator') {
+      document.querySelectorAll('.nav-item').forEach(n => {
+        n.style.display = n.dataset.page === 'validators' ? 'flex' : 'none';
+      });
+      const valSection = document.getElementById('page-validators');
+      if (valSection) {
+        document.querySelectorAll('.page-section').forEach(s => s.classList.remove('active'));
+        valSection.classList.add('active');
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        const valNav = document.querySelector('.nav-item[data-page="validators"]');
+        if (valNav) valNav.classList.add('active');
+      }
+    }
+  }
 })();
+
+function _currentRole() {
+  try { return (JSON.parse(localStorage.getItem('sarmaan_user') || '{}').role || '').replace('_', '-'); } catch (e) { return ''; }
+}
+function _isAdminUser() { return ['super-admin', 'admin'].includes(_currentRole()); }
+function _isValidatorUser() { return _currentRole() === 'validator'; }
 
 function signOut() {
   if (!confirm('Sign out of Coverage?')) return;
@@ -4323,7 +4536,10 @@ function signOut() {
 }
 
 initTheme();
-document.addEventListener('DOMContentLoaded', () => { loadAll(); _loadProjectSwitcher(); });
+document.addEventListener('DOMContentLoaded', () => {
+  if (_isValidatorUser()) { loadValidators(); return; }
+  loadAll(); _loadProjectSwitcher();
+});
 </script>
 
 <!-- ── Admin Panel Overlay ─────────────────────────────────── -->
@@ -4687,6 +4903,7 @@ document.addEventListener('DOMContentLoaded', () => { loadAll(); _loadProjectSwi
 
 <script>
 function showAdminPanel() {
+  if (!_isAdminUser()) { toast('You do not have permission to open the Admin Panel.', true); return; }
   document.getElementById('adminPanelOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
   adminShowSubtab('overview');

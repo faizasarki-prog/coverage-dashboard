@@ -2,10 +2,12 @@ from datetime import datetime, timedelta
 from typing import Any
 
 import pandas as pd
-from fastapi import APIRouter, Body
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
 
 from .. import data_service
+from ..auth import get_current_user
 from ..data_service import filter_child_eligible, filter_cov
+from ..database import User
 
 from data_processor import (
     COL_CDD_VISIT,
@@ -31,17 +33,52 @@ from data_processor import (
 router = APIRouter()
 
 
+def _allowed_lgas(user: User) -> list[str] | None:
+    """LGAs a validator may see. None means unrestricted (admins / super admins)."""
+    if user.role and user.role.name == "validator":
+        lgas = [ul.lga_name for ul in user.lgas]
+        return lgas or None
+    return None
+
+
+def _scoped_community_map(allowed_lgas: list[str] | None) -> dict[str, dict[str, Any]]:
+    cm = data_service.community_map
+    if not allowed_lgas or not cm:
+        return cm
+    norm = {str(x).strip().upper() for x in allowed_lgas if str(x).strip()}
+    return {k: v for k, v in cm.items() if (v.get("lga") or "").strip().upper() in norm}
+
+
+def _community_name(community_map: dict[str, dict[str, Any]], code: Any) -> str:
+    """Resolve a community ID (as stored in the form) to its display name from the
+    uploaded planning/dat file. Never reads the 'Confirm…' columns — those are
+    wiped when a record is edited on Kobo. Falls back to the raw code."""
+    if code is None:
+        return ""
+    code_str = str(code).strip()
+    if not code_str or code_str.lower() in ("nan", "none"):
+        return ""
+    if not community_map:
+        return code_str
+    info = community_map.get(code_str)
+    if info:
+        return str(info.get("name") or code_str).strip() or code_str
+    return code_str
+
+
 @router.get("/api/kpis")
 def api_kpis(
     lga: str | None = None,
     ward: str | None = None,
     community: str | None = None,
     ra: str | None = None,
+    user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
-    df = filter_cov(lga, ward, community, ra)
-    ce = filter_child_eligible(lga, ward, community)
-    child_info = data_service.child_info
-    community_map = data_service.community_map
+    allowed = _allowed_lgas(user)
+    df = filter_cov(lga, ward, community, ra, allowed_lgas=allowed)
+    ce = filter_child_eligible(lga, ward, community, allowed_lgas=allowed)
+    child_info = data_service.child_info_scoped(allowed)
+    community_map = _scoped_community_map(allowed)
 
     kpis: dict[str, Any] = {}
     kpis["total_households"] = int(len(df))
@@ -54,10 +91,12 @@ def api_kpis(
         kpis["total_lgas"] = len(set(v.get("lga", "") for v in community_map.values()))
         kpis["total_wards"] = len(set(v.get("ward", "") for v in community_map.values()))
         kpis["total_communities"] = len(community_map)
+        kpis["coverage_target"] = int(sum(v.get("sample_count", 0) for v in community_map.values()))
     else:
         kpis["total_lgas"] = kpis["lgas_reached"]
         kpis["total_wards"] = kpis["wards_reached"]
         kpis["total_communities"] = kpis["communities_reached"]
+        kpis["coverage_target"] = kpis["total_households"]
 
     if COL_OFFERED_AZM in ce.columns:
         kpis["offered_azm"] = int((ce[COL_OFFERED_AZM].str.strip().str.lower() == "yes").sum())
@@ -90,7 +129,7 @@ def api_kpis(
         kpis["not_offered_azm"] = 0
 
     total_screened = kpis["eligible_children"]
-    kpis["coverage_pct"] = round((kpis["offered_azm"] / total_screened * 100) if total_screened > 0 else 0, 1)
+    kpis["coverage_pct"] = round((kpis["total_households"] / kpis["coverage_target"] * 100) if kpis["coverage_target"] > 0 else 0, 1)
     kpis["swallow_rate"] = round((kpis["swallowed_azm"] / kpis["offered_azm"] * 100) if kpis["offered_azm"] > 0 else 0, 1)
     kpis["last_updated"] = data_service.data_loaded_at or "Not loaded"
 
@@ -103,8 +142,9 @@ def api_daily(
     ward: str | None = None,
     community: str | None = None,
     ra: str | None = None,
+    user: User = Depends(get_current_user),
 ) -> list[dict[str, Any]]:
-    df = filter_cov(lga, ward, community, ra)
+    df = filter_cov(lga, ward, community, ra, allowed_lgas=_allowed_lgas(user))
     if COL_SUBMISSION_TIME in df.columns:
         daily = df.copy()
         daily["date"] = pd.to_datetime(daily[COL_SUBMISSION_TIME], errors="coerce").dt.date
@@ -118,8 +158,9 @@ def api_gender(
     lga: str | None = None,
     ward: str | None = None,
     community: str | None = None,
+    user: User = Depends(get_current_user),
 ) -> dict[str, int]:
-    ce = filter_child_eligible(lga, ward, community)
+    ce = filter_child_eligible(lga, ward, community, allowed_lgas=_allowed_lgas(user))
     if COL_CHILD_SEX in ce.columns:
         gender_counts = ce[COL_CHILD_SEX].str.strip().str.lower().value_counts()
         return {
@@ -134,9 +175,11 @@ def api_funnel(
     lga: str | None = None,
     ward: str | None = None,
     community: str | None = None,
+    user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
-    ce = filter_child_eligible(lga, ward, community)
-    child_info = data_service.child_info
+    allowed = _allowed_lgas(user)
+    ce = filter_child_eligible(lga, ward, community, allowed_lgas=allowed)
+    child_info = data_service.child_info_scoped(allowed)
     eligible_count = 0
     if COL_IS_ELIGIBLE in child_info.columns:
         eligible_count = int((child_info[COL_IS_ELIGIBLE] == "1").sum())
@@ -151,9 +194,9 @@ def api_funnel(
 
 
 @router.get("/api/charts/lga")
-def api_lga_chart() -> list[dict[str, Any]]:
-    df = data_service.cov.copy()
-    community_map = data_service.community_map
+def api_lga_chart(user: User = Depends(get_current_user)) -> list[dict[str, Any]]:
+    df = data_service.scope_cov(data_service.cov, _allowed_lgas(user)).copy()
+    community_map = _scoped_community_map(_allowed_lgas(user))
     if COL_LGA not in df.columns:
         return []
     lga_data = df.groupby(COL_LGA).agg(households_reached=(COL_UUID, "nunique")).reset_index()
@@ -173,8 +216,8 @@ def api_lga_chart() -> list[dict[str, Any]]:
 
 
 @router.get("/api/ra-submissions")
-def api_ra_submissions(lga: str | None = None) -> list[dict[str, Any]]:
-    df = filter_cov(lga)
+def api_ra_submissions(lga: str | None = None, user: User = Depends(get_current_user)) -> list[dict[str, Any]]:
+    df = filter_cov(lga, allowed_lgas=_allowed_lgas(user))
     if COL_RA not in df.columns:
         return []
     ra_data = df.groupby(COL_RA).size().reset_index(name="count").sort_values("count", ascending=False)
@@ -183,8 +226,8 @@ def api_ra_submissions(lga: str | None = None) -> list[dict[str, Any]]:
 
 
 @router.get("/api/cdd-visitation")
-def api_cdd_visitation(lga: str | None = None) -> list[dict[str, Any]]:
-    df = filter_cov(lga)
+def api_cdd_visitation(lga: str | None = None, user: User = Depends(get_current_user)) -> list[dict[str, Any]]:
+    df = filter_cov(lga, allowed_lgas=_allowed_lgas(user))
     if COL_CDD_VISIT in df.columns:
         vc = df[COL_CDD_VISIT].value_counts().reset_index()
         vc.columns = ["response", "count"]
@@ -194,8 +237,8 @@ def api_cdd_visitation(lga: str | None = None) -> list[dict[str, Any]]:
 
 
 @router.get("/api/ra-performance")
-def api_ra_performance(lga: str | None = None) -> dict[str, Any]:
-    df = filter_cov(lga)
+def api_ra_performance(lga: str | None = None, user: User = Depends(get_current_user)) -> dict[str, Any]:
+    df = filter_cov(lga, allowed_lgas=_allowed_lgas(user))
     if COL_RA not in df.columns or COL_LGA not in df.columns:
         return {"lga_groups": {}, "summary": {"total_ras": 0, "met_target": 0, "met_pct": 0}}
 
@@ -251,12 +294,14 @@ def api_dq(
     lga: str | None = None,
     ward: str | None = None,
     community: str | None = None,
+    user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
     from data_processor import compute_dq_metrics
 
-    df = filter_cov(lga, ward, community)
-    ce = filter_child_eligible(lga, ward, community)
-    dq = compute_dq_metrics(df, data_service.child_info, ce)
+    allowed = _allowed_lgas(user)
+    df = filter_cov(lga, ward, community, allowed_lgas=allowed)
+    ce = filter_child_eligible(lga, ward, community, allowed_lgas=allowed)
+    dq = compute_dq_metrics(df, data_service.child_info_scoped(allowed), ce)
     if COL_HH_CODE in df.columns:
         dup_hh = df[df.duplicated(subset=[COL_HH_CODE], keep=False)]
         dq["dup_household_count"] = int(dup_hh[COL_HH_CODE].nunique()) if len(dup_hh) > 0 else 0
@@ -265,8 +310,8 @@ def api_dq(
 
 
 @router.get("/api/errors-by-lga")
-def api_errors_by_lga() -> list[dict[str, Any]]:
-    df = data_service.cov.copy()
+def api_errors_by_lga(user: User = Depends(get_current_user)) -> list[dict[str, Any]]:
+    df = data_service.scope_cov(data_service.cov, _allowed_lgas(user)).copy()
     if COL_LGA not in df.columns:
         return []
     errors: list[dict[str, Any]] = []
@@ -312,15 +357,21 @@ def _pick_col(df, candidates):
 
 
 @router.get("/api/validators/flagged")
-def api_validators_flagged(status: str = "pending") -> list[dict[str, Any]]:
-    from ..database import SessionLocal, ValidationDecision
-    cov = data_service.cov
-    child = data_service.child_info
-    elig = data_service.child_eligible
+def api_validators_flagged(status: str = "pending", user: User = Depends(get_current_user)) -> list[dict[str, Any]]:
+    from ..database import SessionLocal, ValidationDecision, ValidatorFlag
+    allowed = _allowed_lgas(user)
+    cov = data_service.scope_cov(data_service.cov, allowed)
+    child = data_service.child_info_scoped(allowed)
+    elig = data_service.child_eligible_scoped(allowed)
     if cov is None or cov.empty:
         return []
     with SessionLocal() as db:
         decisions = {d.record_uuid: d.status for d in db.query(ValidationDecision).all()}
+        vflags_map: dict[str, list[str]] = {}
+        for uuid_val, flag in db.query(ValidatorFlag.record_uuid, ValidatorFlag.flag).all():
+            vflags_map.setdefault(uuid_val, []).append(flag)
+
+    community_map = _scoped_community_map(allowed)
 
     col_head_name  = _pick_col(cov, ["Q11. Name of the Head of the household?", "Q11", "Head of the household"])
     col_head_gen   = _pick_col(cov, ["Q12. Gender of the Head of the household?", "Q12", "Gender of the Head"])
@@ -342,13 +393,17 @@ def api_validators_flagged(status: str = "pending") -> list[dict[str, Any]]:
     if child is not None and not child.empty:
         col_child_label = _pick_col(child, ["child_label"])
         col_child_uuid  = _pick_col(child, ["_submission__uuid", "_uuid", "submission_uuid"])
+        col_child_id    = _pick_col(child, ["child_id", "child_idd"])
+        col_parent_idx  = _pick_col(child, ["_parent_index", "parent_index"])
         col_c_age       = _pick_col(child, ["Age of child", "age"])
         col_c_eligible  = COL_IS_ELIGIBLE if COL_IS_ELIGIBLE in child.columns else _pick_col(child, ["is_eligible"])
         col_c_vacc      = _pick_col(child, ["vaccination card", "Vaccination card image", "vaccination_card"])
         col_c_name      = _pick_col(child, ["Q88. Child name and age", "Q88"])
         col_c_sex       = _pick_col(child, ["Q89. Sex", "Q89"])
-        if col_child_label and col_child_uuid:
-            key = child[col_child_label].astype(str).str.strip() + "|" + child[col_child_uuid].astype(str).str.strip()
+        # Repetitive child: the same child selected twice within the same household
+        # submission (household identity = _parent_index).
+        if col_child_uuid and col_child_id and col_parent_idx:
+            key = child[col_parent_idx].astype(str).str.strip() + "|" + child[col_child_id].astype(str).str.strip()
             vc = key.value_counts()
             rep_child_uuids = set(child.loc[key.isin(vc[vc > 1].index), col_child_uuid].astype(str).str.strip())
         if col_c_age and col_c_eligible:
@@ -362,9 +417,20 @@ def api_validators_flagged(status: str = "pending") -> list[dict[str, Any]]:
             missing_vacc_uuids = set(child.loc[missing, col_child_uuid].astype(str).str.strip())
     # Q88 name-age and Q89 sex live on the child_eligible sheet
     if elig is not None and not elig.empty:
-        col_e_uuid = _pick_col(elig, ["_submission__uuid", "_uuid"])
-        col_e_name = _pick_col(elig, ["Q88. Child name and age", "Q88"])
-        col_e_sex  = _pick_col(elig, ["Q89. Sex", "Q89"])
+        col_e_uuid    = _pick_col(elig, ["_submission__uuid", "_uuid"])
+        col_e_name    = _pick_col(elig, ["Q88. Child name and age", "Q88"])
+        col_e_sex     = _pick_col(elig, ["Q89. Sex", "Q89"])
+        col_e_parent  = _pick_col(elig, ["_parent_index", "parent_index", "_index"])
+        # Repeated child: the same Q88 child name + age entered twice within the
+        # same household submission (household identity = _parent_index).
+        if col_e_uuid and col_e_name:
+            name_key = elig[col_e_name].astype(str).str.strip()
+            if col_e_parent:
+                name_key = elig[col_e_parent].astype(str).str.strip() + "|" + name_key
+            vc = name_key.value_counts()
+            if len(vc):
+                rep_uuids = set(elig.loc[name_key.isin(vc[vc > 1].index), col_e_uuid].astype(str).str.strip())
+                rep_child_uuids |= rep_uuids
         if col_e_uuid:
             for _, er in elig.iterrows():
                 u = str(er.get(col_e_uuid, "")).strip()
@@ -415,12 +481,16 @@ def api_validators_flagged(status: str = "pending") -> list[dict[str, Any]]:
         child_name_age = "; ".join([k["name_age"] for k in kids if k["name_age"]]) or "—"
         child_sex      = "; ".join([k["sex"] for k in kids if k["sex"]]) or "—"
 
+        system_flags = list(flags)
+        added_flags = [f for f in vflags_map.get(uuid_val, []) if f not in system_flags]
+        combined_flags = system_flags + added_flags
+
         rows.append({
             "uuid": uuid_val,
             "unique_code": uc,
             "lga": str(r.get(COL_LGA, "")).strip() if COL_LGA in cov.columns else "",
             "ward": str(r.get(COL_WARD, "")).strip() if COL_WARD in cov.columns else "",
-            "community": str(r.get(COL_COMMUNITY, "")).strip() if COL_COMMUNITY in cov.columns else "",
+            "community": _community_name(community_map, r.get(COL_COMMUNITY, "")) if COL_COMMUNITY in cov.columns else "",
             "ra": str(r.get(COL_RA, "")).strip() if COL_RA in cov.columns else "",
             "head_name": str(r.get(col_head_name, "")).strip() if col_head_name else "",
             "head_gender": str(r.get(col_head_gen, "")).strip() if col_head_gen else "",
@@ -429,11 +499,29 @@ def api_validators_flagged(status: str = "pending") -> list[dict[str, Any]]:
             "settlement_type": str(r.get(col_settle, "")).strip() if col_settle else "",
             "child_name_age": child_name_age,
             "child_sex": child_sex,
-            "flags": flags,
+            "flags": combined_flags,
+            "system_flags": system_flags,
+            "validator_flags": added_flags,
             "status": record_status,
         })
     rows.sort(key=lambda x: (-len(x["flags"]), x["lga"], x["ward"]))
     return rows
+
+
+def _ensure_record_in_scope(user: User, record_uuid: str) -> None:
+    """Raise 403 when a validator tries to act on a record outside their assigned LGAs."""
+    if not user.role or user.role.name not in ("validator", "admin", "super_admin"):
+        raise HTTPException(status_code=403, detail="Not permitted")
+    if user.role.name == "validator":
+        allowed = _allowed_lgas(user)
+        cov = data_service.scope_cov(data_service.cov, allowed)
+        scoped_uuids: set = set()
+        if cov is not None and not cov.empty:
+            for c in ["_uuid", COL_UUID]:
+                if c in cov.columns:
+                    scoped_uuids |= set(cov[c].astype(str).str.strip())
+        if record_uuid not in scoped_uuids:
+            raise HTTPException(status_code=403, detail="Record is outside your assigned LGAs")
 
 
 class ValidatorDecisionIn(__import__("pydantic").BaseModel):
@@ -442,9 +530,13 @@ class ValidatorDecisionIn(__import__("pydantic").BaseModel):
 
 
 @router.post("/api/validators/{record_uuid}/decision")
-def api_validator_decision(record_uuid: str, payload: ValidatorDecisionIn) -> dict:
-    from fastapi import HTTPException
+def api_validator_decision(
+    record_uuid: str,
+    payload: ValidatorDecisionIn,
+    user: User = Depends(get_current_user),
+) -> dict:
     from ..database import SessionLocal, ValidationDecision
+    _ensure_record_in_scope(user, record_uuid)
     if payload.status not in ("approved", "rejected", "pending"):
         raise HTTPException(status_code=400, detail="status must be approved, rejected, or pending")
     with SessionLocal() as db:
@@ -452,21 +544,50 @@ def api_validator_decision(record_uuid: str, payload: ValidatorDecisionIn) -> di
         if existing:
             existing.status = payload.status
             existing.note = payload.note
+            existing.decided_by = user.id
             existing.decided_at = datetime.utcnow()
         else:
-            db.add(ValidationDecision(record_uuid=record_uuid, status=payload.status, note=payload.note))
+            db.add(ValidationDecision(record_uuid=record_uuid, status=payload.status, note=payload.note, decided_by=user.id))
         db.commit()
     return {"uuid": record_uuid, "status": payload.status}
 
 
+class ValidatorFlagsIn(__import__("pydantic").BaseModel):
+    flags: list[str] = []
+    note: str | None = None
+
+
+@router.post("/api/validators/{record_uuid}/flags")
+def api_validator_add_flags(
+    record_uuid: str,
+    payload: ValidatorFlagsIn,
+    user: User = Depends(get_current_user),
+) -> dict:
+    """Add validator-assigned error flags to a record (system flags are never removed)."""
+    from ..database import SessionLocal, ValidatorFlag
+    _ensure_record_in_scope(user, record_uuid)
+    added: list[str] = []
+    with SessionLocal() as db:
+        existing = {f.flag for f in db.query(ValidatorFlag).filter(ValidatorFlag.record_uuid == record_uuid).all()}
+        for f in payload.flags:
+            f = str(f).strip()
+            if not f or f in existing:
+                continue
+            db.add(ValidatorFlag(record_uuid=record_uuid, flag=f, note=payload.note, added_by=user.id))
+            existing.add(f)
+            added.append(f)
+        db.commit()
+    return {"uuid": record_uuid, "added": added}
+
+
 @router.get("/api/validators/summary")
-def api_validator_summary() -> dict:
+def api_validator_summary(user: User = Depends(get_current_user)) -> dict:
     from ..database import SessionLocal, ValidationDecision
     from sqlalchemy import func
     with SessionLocal() as db:
         by_status = dict(db.query(ValidationDecision.status, func.count(ValidationDecision.id))
                          .group_by(ValidationDecision.status).all())
-    all_records = api_validators_flagged(status="all")
+    all_records = api_validators_flagged(status="all", user=user)
     flagged = [r for r in all_records if r["flags"]]
     return {
         "pending": len([r for r in all_records if r["status"] == "pending"]),
@@ -482,13 +603,15 @@ def api_quality_by_enumerator(
     lga: str | None = None,
     ward: str | None = None,
     community: str | None = None,
+    user: User = Depends(get_current_user),
 ) -> list[dict[str, Any]]:
     from data_processor import compute_error_log, compute_dq_metrics
-    df = filter_cov(lga, ward, community)
-    ce = filter_child_eligible(lga, ward, community)
+    allowed = _allowed_lgas(user)
+    df = filter_cov(lga, ward, community, allowed_lgas=allowed)
+    ce = filter_child_eligible(lga, ward, community, allowed_lgas=allowed)
     if df is None or df.empty or COL_RA not in df.columns:
         return []
-    dq = compute_dq_metrics(df, data_service.child_info, ce)
+    dq = compute_dq_metrics(df, data_service.child_info_scoped(allowed), ce)
     errs = compute_error_log(df, ce, dq)
     if errs is None or errs.empty:
         return []
@@ -501,6 +624,12 @@ def api_quality_by_enumerator(
     totals = df.copy()
     totals["_ra"] = totals[COL_RA].astype(str).str.strip().replace({"nan": "Unknown", "": "Unknown"})
     total_by_ra = totals.groupby("_ra").size().to_dict()
+    lga_by_ra: dict[str, list[str]] = {}
+    if COL_LGA in totals.columns:
+        lga_by_ra = {
+            ra: sorted({str(x).strip() for x in grp[COL_LGA] if str(x).strip().lower() not in ("nan", "")})
+            for ra, grp in totals.groupby("_ra")
+        }
     agg = errs.groupby("_ra").agg({**{c: "sum" for c in err_cols}, "_has_error": "sum"}).reset_index()
     rows: list[dict[str, Any]] = []
     for _, r in agg.iterrows():
@@ -510,6 +639,8 @@ def api_quality_by_enumerator(
         pct = round(recs_with_error / total * 100, 1) if total else 0.0
         rows.append({
             "enumerator": ra,
+            "lga": ", ".join(lga_by_ra.get(ra, [])) or "—",
+            "lgas": lga_by_ra.get(ra, []),
             "total_records": total,
             "duplicate_hh": int(r.get("Duplicate Household", 0)),
             "settlement_mismatch": int(r.get("Settlement Type Mismatch", 0)),
@@ -528,12 +659,14 @@ def api_error_log(
     ward: str | None = None,
     community: str | None = None,
     ra: str | None = None,
+    user: User = Depends(get_current_user),
 ) -> list[dict[str, Any]]:
     from data_processor import compute_dq_metrics, compute_error_log
 
-    df = filter_cov(lga, ward, community, ra)
-    ce = filter_child_eligible(lga, ward, community)
-    dq = compute_dq_metrics(df, data_service.child_info, ce)
+    allowed = _allowed_lgas(user)
+    df = filter_cov(lga, ward, community, ra, allowed_lgas=allowed)
+    ce = filter_child_eligible(lga, ward, community, allowed_lgas=allowed)
+    dq = compute_dq_metrics(df, data_service.child_info_scoped(allowed), ce)
     errors_df = compute_error_log(df, ce, dq)
     error_cols = [
         c for c in errors_df.columns
@@ -562,9 +695,11 @@ def api_completion(
     lga: str | None = None,
     ward: str | None = None,
     community: str | None = None,
+    user: User = Depends(get_current_user),
 ) -> list[dict[str, Any]]:
-    df = filter_cov(lga, ward, community)
-    community_map = data_service.community_map
+    allowed = _allowed_lgas(user)
+    df = filter_cov(lga, ward, community, allowed_lgas=allowed)
+    community_map = _scoped_community_map(allowed)
     if COL_LGA not in df.columns:
         return []
     completion_data = df.groupby([COL_LGA, COL_WARD, COL_COMMUNITY]).agg(
@@ -574,8 +709,8 @@ def api_completion(
     result: list[dict[str, Any]] = []
     for _, r in completion_data.iterrows():
         code = str(r[COL_COMMUNITY]).strip()
+        name = _community_name(community_map, code)
         info = community_map.get(code, {})
-        name = info.get("name", code)
         planned = info.get("sample_count", 0)
         reached = int(r["households_reached"])
         status_ = "Complete" if planned > 0 and reached >= planned else "Incomplete"
@@ -598,8 +733,9 @@ def api_gps_data(
     ward: str | None = None,
     community: str | None = None,
     ra: str | None = None,
+    user: User = Depends(get_current_user),
 ) -> list[dict[str, Any]]:
-    df = filter_cov(lga, ward, community, ra)
+    df = filter_cov(lga, ward, community, ra, allowed_lgas=_allowed_lgas(user))
     if COL_LAT not in df.columns or COL_LNG not in df.columns:
         return []
     gps = df[[COL_LAT, COL_LNG, COL_LGA, COL_WARD, COL_RA]].dropna(subset=[COL_LAT, COL_LNG]).copy()
@@ -619,8 +755,8 @@ def api_gps_data(
 
 
 @router.get("/api/gps-summary")
-def api_gps_summary() -> dict[str, Any]:
-    df = data_service.cov.copy()
+def api_gps_summary(user: User = Depends(get_current_user)) -> dict[str, Any]:
+    df = data_service.scope_cov(data_service.cov, _allowed_lgas(user)).copy()
     summary: dict[str, Any] = {}
     if COL_LAT in df.columns and COL_LNG in df.columns:
         gps = df[[COL_LAT, COL_LNG]].dropna()
@@ -644,9 +780,10 @@ def api_gps_summary() -> dict[str, Any]:
 
 
 @router.get("/api/validation")
-def api_validation() -> dict[str, Any]:
-    df = data_service.cov.copy()
-    ci = data_service.child_info.copy()
+def api_validation(user: User = Depends(get_current_user)) -> dict[str, Any]:
+    allowed = _allowed_lgas(user)
+    df = data_service.scope_cov(data_service.cov, allowed).copy()
+    ci = data_service.child_info_scoped(allowed).copy()
     validation: dict[str, Any] = {}
     flags: list[dict[str, Any]] = []
     val_cols: list[str] = []
@@ -802,15 +939,16 @@ def api_validation() -> dict[str, Any]:
 
 
 @router.get("/api/filters")
-def api_filters() -> dict[str, Any]:
+def api_filters(user: User = Depends(get_current_user)) -> dict[str, Any]:
     from data_processor import get_lga_hierarchy, get_lga_wards_communities
 
-    cov = data_service.cov
-    community_map = data_service.community_map
+    allowed = _allowed_lgas(user)
+    cov = data_service.scope_cov(data_service.cov, allowed)
+    community_map = _scoped_community_map(allowed)
     lga_list, ward_list, community_list, ra_list = get_lga_wards_communities(cov)
     hierarchy = get_lga_hierarchy(cov) if COL_LGA in cov.columns else {}
     communities = [
-        {"code": c, "name": community_map.get(c, {}).get("name", c)}
+        {"code": c, "name": _community_name(community_map, c)}
         for c in community_list
     ]
     return {
@@ -828,12 +966,14 @@ def api_supervision(
     lga: str | None = None,
     ward: str | None = None,
     settlement: str | None = None,
+    user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
     from data_processor import compute_dq_metrics, compute_error_log
 
-    df = data_service.cov.copy()
-    ce = data_service.child_eligible.copy()
-    dq = compute_dq_metrics(df, data_service.child_info, ce)
+    allowed = _allowed_lgas(user)
+    df = data_service.scope_cov(data_service.cov, allowed).copy()
+    ce = data_service.child_eligible_scoped(allowed).copy()
+    dq = compute_dq_metrics(df, data_service.child_info_scoped(allowed), ce)
     errors_df = compute_error_log(df, ce, dq)
     error_cols = [
         c for c in errors_df.columns
@@ -928,9 +1068,11 @@ def api_ai_insights(
     ward: str | None = None,
     community: str | None = None,
     ra: str | None = None,
+    user: User = Depends(get_current_user),
 ) -> list[dict[str, Any]]:
-    df = filter_cov(lga, ward, community, ra)
-    ce = filter_child_eligible(lga, ward, community)
+    allowed = _allowed_lgas(user)
+    df = filter_cov(lga, ward, community, ra, allowed_lgas=allowed)
+    ce = filter_child_eligible(lga, ward, community, allowed_lgas=allowed)
     insights: list[dict[str, Any]] = []
     offered = int((ce[COL_OFFERED_AZM].str.strip().str.lower() == "yes").sum()) if COL_OFFERED_AZM in ce.columns else 0
     total_eligible = int(len(ce))
@@ -959,8 +1101,10 @@ def api_ai_regression(
     ward: str | None = None,
     community: str | None = None,
     ra: str | None = None,
+    user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
-    df = filter_cov(lga, ward, community, ra)
+    allowed = _allowed_lgas(user)
+    df = filter_cov(lga, ward, community, ra, allowed_lgas=allowed)
     daily_data: dict[str, Any]
     if COL_SUBMISSION_TIME in df.columns:
         daily = df.copy()
@@ -999,7 +1143,7 @@ def api_ai_regression(
             lga_trends[str(lga_name)] = {"current": current, "trend": trend}
 
     kpis: dict[str, str] = {}
-    ce = filter_child_eligible(lga, ward, community)
+    ce = filter_child_eligible(lga, ward, community, allowed_lgas=allowed)
     offered = int((ce[COL_OFFERED_AZM].str.strip().str.lower() == "yes").sum()) if COL_OFFERED_AZM in ce.columns else 0
     total_eligible = int(len(ce))
     kpis["Coverage"] = f"{round((offered / max(total_eligible, 1)) * 100, 1)}%"
@@ -1010,8 +1154,8 @@ def api_ai_regression(
 
 
 @router.get("/api/ai/anomaly")
-def api_ai_anomaly(lga: str | None = None) -> list[dict[str, Any]]:
-    df = filter_cov(lga)
+def api_ai_anomaly(lga: str | None = None, user: User = Depends(get_current_user)) -> list[dict[str, Any]]:
+    df = filter_cov(lga, allowed_lgas=_allowed_lgas(user))
     anomalies: list[dict[str, Any]] = []
     if COL_LAT in df.columns and COL_LNG in df.columns:
         gps = df[[COL_LAT, COL_LNG]].dropna()
@@ -1028,12 +1172,16 @@ def api_ai_anomaly(lga: str | None = None) -> list[dict[str, Any]]:
 
 
 @router.post("/api/ai/chat")
-def api_ai_chat(payload: dict = Body(default={})) -> dict[str, str]:
+def api_ai_chat(
+    payload: dict = Body(default={}),
+    user: User = Depends(get_current_user),
+) -> dict[str, str]:
     from data_processor import compute_dq_metrics
 
-    cov = data_service.cov
-    child_info = data_service.child_info
-    ce = data_service.child_eligible
+    allowed = _allowed_lgas(user)
+    cov = data_service.scope_cov(data_service.cov, allowed)
+    child_info = data_service.child_info_scoped(allowed)
+    ce = data_service.child_eligible_scoped(allowed)
 
     msg = (payload.get("message") or "").strip().lower()
     total_hh = int(len(cov))
@@ -1083,10 +1231,11 @@ def api_ai_chat(payload: dict = Body(default={})) -> dict[str, str]:
 
 
 @router.get("/api/summary")
-def api_summary() -> dict[str, int]:
-    cov = data_service.cov
-    child_info = data_service.child_info
-    child_eligible = data_service.child_eligible
+def api_summary(user: User = Depends(get_current_user)) -> dict[str, int]:
+    allowed = _allowed_lgas(user)
+    cov = data_service.scope_cov(data_service.cov, allowed)
+    child_info = data_service.child_info_scoped(allowed)
+    child_eligible = data_service.child_eligible_scoped(allowed)
     total_hh = int(len(cov))
     total_lga = int(cov[COL_LGA].nunique()) if COL_LGA in cov.columns else 0
     total_ra = int(cov[COL_RA].nunique()) if COL_RA in cov.columns else 0

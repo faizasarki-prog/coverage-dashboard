@@ -57,6 +57,7 @@ def _project_row(project_id: int | None = None) -> dict | None:
             "name": p.name,
             "kobo_api_url": p.kobo_api_url,
             "kobo_api_token": p.kobo_api_token,
+            "planning_file_path": p.planning_file_path,
         }
 
 
@@ -152,7 +153,6 @@ def load_data(force_refresh: bool = False, project_id: int | None = None) -> str
         raise RuntimeError("No projects configured. Create a project in the Admin panel first.")
     pid = proj["id"]
     current_project_id = pid
-
     cache = _project_cache.setdefault(pid, {})
     if force_refresh:
         cache = {}
@@ -191,21 +191,82 @@ def load_data(force_refresh: bool = False, project_id: int | None = None) -> str
     else:
         _apply_cache(cache)
 
-    if not community_map and COMMUNITY_MAP_PATH.exists():
-        try:
-            cmap = pd.read_csv(COMMUNITY_MAP_PATH, dtype=str)
-            for _, row in cmap.iterrows():
-                code = str(row.get("settlement_Name", "")).strip()
-                if code:
-                    community_map[code] = {
-                        "name": str(row.get("settlement_Label", code)).strip(),
-                        "sample_count": int(float(row.get("sample_count", 0) or 0)),
-                        "lga": str(row.get("lga_Label", "")).strip(),
-                        "ward": str(row.get("ward_Label", "")).strip(),
-                    }
-        except Exception:
-            pass
+    _load_community_map(proj)
     return warning
+
+
+def _load_community_map_from(path: Path) -> dict[str, dict[str, Any]]:
+    """Parse a planning/dat file (CSV or Excel) into a community map keyed by the
+    settlement code (ID) → {name, sample_count, lga, ward}. The Kobo export stores
+    the community *ID* (e.g. "70311") in the form; the name is derived from this
+    uploaded file so it survives form edits."""
+    cm: dict[str, dict[str, Any]] = {}
+    if not path or not path.exists():
+        return cm
+    try:
+        table: pd.DataFrame | None = None
+        try:
+            table = pd.read_csv(path, dtype=str)
+        except Exception:
+            table = pd.read_excel(path, dtype=str)
+        if table is None or table.empty:
+            return cm
+    except Exception as e:
+        print(f"[data] could not parse community map {path}: {e}")
+        return cm
+    for _, row in table.iterrows():
+        code = str(row.get("settlement_Name", "")).strip()
+        if not code:
+            continue
+        cm[code] = {
+            "name": str(row.get("settlement_Label", code)).strip(),
+            "sample_count": int(float(row.get("sample_count", 0) or 0)),
+            "lga": str(row.get("lga_Label", "")).strip(),
+            "ward": str(row.get("ward_Label", "")).strip(),
+        }
+    return cm
+
+
+def _load_community_map(proj: dict | None = None) -> None:
+    """Load the community map for a project: its uploaded planning file when one
+    exists, otherwise the repo-level dat.csv (the default/Sokoto map)."""
+    global community_map
+    plan_path = (proj or {}).get("planning_file_path") or ""
+    if plan_path:
+        cm = _load_community_map_from(Path(plan_path))
+        if cm:
+            community_map = cm
+            return
+    community_map = _load_community_map_from(COMMUNITY_MAP_PATH)
+
+
+def _norm_lgas(lgas: list[str] | None) -> set[str]:
+    if not lgas:
+        return set()
+    return {str(x).strip().upper() for x in lgas if str(x).strip()}
+
+
+def scope_cov(df: pd.DataFrame, allowed_lgas: list[str] | None = None) -> pd.DataFrame:
+    """Restrict a coverage (cov) DataFrame to the allowed LGAs."""
+    if df is None or not allowed_lgas:
+        return df
+    norm = _norm_lgas(allowed_lgas)
+    if COL_LGA not in df.columns:
+        return df.iloc[0:0].copy()
+    return df[df[COL_LGA].astype(str).str.strip().str.upper().isin(norm)]
+
+
+def _scope_child_df(df: pd.DataFrame | None, allowed_lgas: list[str] | None) -> pd.DataFrame | None:
+    """Restrict a child sheet to households in the allowed LGAs via its submission uuid."""
+    if df is None or not allowed_lgas:
+        return df
+    uuid_col = next((c for c in ("_submission__uuid", "_uuid", "_submission__uuid") if c in df.columns), None)
+    if uuid_col is None:
+        return df
+    hh_codes = filter_cov(allowed_lgas=allowed_lgas)[COL_UUID].astype(str).str.strip().unique() if COL_UUID in cov.columns else []
+    if len(hh_codes) == 0:
+        return df.iloc[0:0].copy()
+    return df[df[uuid_col].astype(str).str.strip().isin(hh_codes)]
 
 
 def filter_cov(
@@ -213,8 +274,11 @@ def filter_cov(
     ward: str | None = None,
     community: str | None = None,
     ra: str | None = None,
+    allowed_lgas: list[str] | None = None,
 ) -> pd.DataFrame:
     df = cov.copy()
+    if allowed_lgas:
+        df = scope_cov(df, allowed_lgas)
     if lga and COL_LGA in df.columns:
         df = df[df[COL_LGA].astype(str).str.strip() == lga.strip()]
     if ward and COL_WARD in df.columns:
@@ -226,14 +290,26 @@ def filter_cov(
     return df
 
 
+def child_info_scoped(allowed_lgas: list[str] | None = None) -> pd.DataFrame:
+    return _scope_child_df(child_info, allowed_lgas)
+
+
+def child_eligible_scoped(allowed_lgas: list[str] | None = None) -> pd.DataFrame:
+    return _scope_child_df(child_eligible, allowed_lgas)
+
+
 def filter_child_eligible(
     lga: str | None = None,
     ward: str | None = None,
     community: str | None = None,
+    allowed_lgas: list[str] | None = None,
 ) -> pd.DataFrame:
-    if any([lga, ward, community]):
-        filtered = filter_cov(lga, ward, community)
-        hh_codes = filtered[COL_UUID].unique() if COL_UUID in filtered.columns else []
-        if len(hh_codes) > 0 and "_uuid" in child_eligible.columns:
-            return child_eligible[child_eligible["_uuid"].isin(hh_codes)]
-    return child_eligible
+    filtered = filter_cov(lga, ward, community, allowed_lgas=allowed_lgas)
+    if COL_UUID not in filtered.columns or "_uuid" not in child_eligible.columns:
+        return child_eligible
+    hh_codes = filtered[COL_UUID].astype(str).str.strip().unique()
+    if len(hh_codes) == 0:
+        if allowed_lgas or any([lga, ward, community]):
+            return child_eligible.iloc[0:0].copy()
+        return child_eligible
+    return child_eligible[child_eligible["_uuid"].astype(str).str.strip().isin(hh_codes)]
