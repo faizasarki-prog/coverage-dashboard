@@ -15,6 +15,9 @@ data/admin.db
 # Claude Code local config
 .claude/
 
+# Local environment file (contains credentials)
+.env
+
 # React build artifacts
 frontend/node_modules/
 frontend/dist/
