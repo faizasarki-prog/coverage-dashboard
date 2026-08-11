@@ -450,25 +450,26 @@ def api_validators_flagged(status: str = "pending", user: User = Depends(get_cur
 
     # Child Count Mismatch — reported eligible (from HH form) vs actual eligible child rows.
     # Only eligible children (is_eligible == 1) are counted; ineligible child rows are
-    # present on the child_info sheet and must not inflate the "actual" side.
+    # present on the child_info sheet and must not inflate the "actual" side. If the
+    # eligibility column is absent/blank, fall back to counting all child rows.
+    child_data_present = child is not None and not child.empty
     actual_child_count_by_uuid: dict[str, int] = {}
-    if child is not None and not child.empty and col_child_uuid:
+    if child_data_present and col_child_uuid:
         count_src = child
         if col_c_eligible:
             elig_num = pd.to_numeric(child[col_c_eligible], errors="coerce")
-            count_src = child.loc[elig_num == 1]
+            if elig_num.notna().any():
+                count_src = child.loc[elig_num == 1]
         gp = count_src.groupby(col_child_uuid).size()
         actual_child_count_by_uuid = {str(k).strip(): int(v) for k, v in gp.items()}
 
-    # Survey Date Consistency — form start vs submission
-    def _parse_dt(v):
-        try:
-            return pd.to_datetime(v, errors="coerce", utc=True)
-        except Exception:
-            return None
+    # Survey Date Consistency — form start vs submission. Parsed once on the whole
+    # column (vectorised) instead of a per-row pd.to_datetime call.
+    start_dts = pd.to_datetime(cov[col_start], errors="coerce", utc=True) if col_start else None
+    sub_dts   = pd.to_datetime(cov[col_submitted], errors="coerce", utc=True) if col_submitted else None
 
     rows: list[dict[str, Any]] = []
-    for _, r in cov.iterrows():
+    for i, (_, r) in enumerate(cov.iterrows()):
         flags = []
         uc = str(r.get(col_unique, "")).strip() if col_unique else ""
         uuid_val = str(r.get("_uuid", "")).strip() or str(r.get(COL_UUID, "")).strip() if COL_UUID in cov.columns else ""
@@ -499,11 +500,11 @@ def api_validators_flagged(status: str = "pending", user: User = Depends(get_cur
             if uuid_val in missing_vacc_uuids:
                 flags.append("Missing vacc card")
 
-        # Child Count Mismatch: reported eligible vs actual child rows
+        # Child Count Mismatch: reported eligible vs actual eligible child rows
         expected_children = None
         actual_children = None
         child_count_diff = None
-        if col_total_elig and uuid_val:
+        if col_total_elig and uuid_val and child_data_present:
             try:
                 expected_children = int(float(str(r.get(col_total_elig, "")).strip() or 0))
                 actual_children = actual_child_count_by_uuid.get(uuid_val, 0)
@@ -518,10 +519,10 @@ def api_validators_flagged(status: str = "pending", user: User = Depends(get_cur
         form_start = None
         form_submitted = None
         form_duration_min = None
-        if col_start and col_submitted:
-            start_dt = _parse_dt(r.get(col_start))
-            sub_dt = _parse_dt(r.get(col_submitted))
-            if start_dt is not None and sub_dt is not None and pd.notna(start_dt) and pd.notna(sub_dt):
+        if start_dts is not None and sub_dts is not None:
+            start_dt = start_dts.iloc[i]
+            sub_dt = sub_dts.iloc[i]
+            if pd.notna(start_dt) and pd.notna(sub_dt):
                 form_start = str(start_dt)
                 form_submitted = str(sub_dt)
                 try:
