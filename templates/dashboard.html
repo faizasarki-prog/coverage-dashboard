@@ -392,6 +392,7 @@ body.sidebar-collapsed .sidebar-toggle .bi { transform: rotate(180deg); }
 #page-validators .val-mini-card.tone-warn    { --tone: #B45309; --tone-bg: #FEF3C7; }
 #page-validators .val-mini-card.tone-info    { --tone: #1E40AF; --tone-bg: #DBEAFE; }
 #page-validators .val-mini-card.tone-purple  { --tone: #6D28D9; --tone-bg: #EDE9FE; }
+#page-validators .val-mini-card.tone-hold    { --tone: #D97706; --tone-bg: #FEF3C7; }
 #page-validators .val-tabs { display: flex; gap: 4px; margin-bottom: 12px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
 #page-validators .val-tab { display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--text-muted); font-size: 13px; font-weight: 500; cursor: pointer; font-family: inherit; margin-bottom: -1px; }
 #page-validators .val-tab:hover { color: var(--ink); }
@@ -420,6 +421,7 @@ th.qc-sort:hover { color: var(--olive-dark); }
 th.qc-sort .qc-arrow { display: inline-block; margin-left: 4px; font-size: 10px; opacity: 0.6; }
 .val-icon-btn.approve:hover { color: #166534; border-color: #16A34A; background: #DCFCE7; }
 .val-icon-btn.reject:hover  { color: #B91C1C; border-color: #DC2626; background: #FEE2E2; }
+.val-icon-btn.hold:hover    { color: #92400E; border-color: #D97706; background: #FEF3C7; }
 .role-super-admin-tier .dot { background: #F59E0B; }
 .role-admin-tier .dot { background: #3B82F6; }
 .role-validator-tier .dot { background: #22c55e; }
@@ -892,6 +894,19 @@ body.filter-open .chat-fab, body.filter-open .chat-panel { display: none !import
         <div><span style="font-weight:700;color:var(--text-muted)">Child:</span> <span id="valEditChild">—</span></div>
       </div>
 
+      <div id="valEditVacc" style="display:none;margin-bottom:14px"></div>
+
+      <div style="margin-bottom:16px">
+        <label style="font-size:13px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:6px">
+          <i class="bi bi-pause-circle" style="color:#d97706"></i> Decision
+        </label>
+        <div style="display:flex;gap:18px;flex-wrap:wrap;padding:10px 14px;border:1px solid var(--border);border-radius:10px">
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;color:var(--text-body)"><input type="radio" name="valEditStatus" value="approved" style="accent-color:#16a34a"> <strong>Approve</strong></label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;color:var(--text-body)"><input type="radio" name="valEditStatus" value="rejected" style="accent-color:#dc2626"> <strong>Not Approved</strong></label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;color:var(--text-body)"><input type="radio" name="valEditStatus" value="on_hold" style="accent-color:#d97706"> <strong>On Hold</strong></label>
+        </div>
+      </div>
+
       <div style="margin-bottom:16px">
         <label style="font-size:13px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:6px">
           <i class="bi bi-shield-lock" style="color:#B91C1C"></i> System-detected errors (cannot be removed)
@@ -920,7 +935,7 @@ body.filter-open .chat-fab, body.filter-open .chat-panel { display: none !import
       <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end">
         <button onclick="closeValEdit()" style="padding:8px 18px;border:1px solid var(--border);border-radius:8px;background:var(--white);font-size:13px;cursor:pointer">Cancel</button>
         <button onclick="saveValEdit()" style="padding:8px 20px;border:none;border-radius:8px;background:var(--olive);color:#fff;font-size:13px;font-weight:700;cursor:pointer">
-          <i class="bi bi-flag"></i> Save Errors
+          <i class="bi bi-flag"></i> Save
         </button>
       </div>
     </div>
@@ -1404,10 +1419,10 @@ body.filter-open .chat-fab, body.filter-open .chat-panel { display: none !import
             <div class="d">Same child selected twice in a household</div>
           </div>
           <div class="stat">
-            <div class="stat-icon green"><i class="bi bi-person-badge-fill"></i></div>
-            <div class="eyebrow">Active Research Assistants</div>
-            <div class="n" id="qc-active-ras">-</div>
-            <div class="d">Unique research assistants in the field</div>
+            <div class="stat-icon green"><i class="bi bi-pause-circle-fill"></i></div>
+            <div class="eyebrow">On Hold</div>
+            <div class="n" id="qc-on-hold">-</div>
+            <div class="d">Records awaiting a decision, held for review</div>
           </div>
           <div class="stat">
             <div class="stat-icon ink"><i class="bi bi-person-x-fill"></i></div>
@@ -1428,10 +1443,38 @@ body.filter-open .chat-fab, body.filter-open .chat-panel { display: none !import
             <div class="d">Wealth answers contradict urban/rural settlement type</div>
           </div>
           <div class="stat">
-            <div class="stat-icon ink"><i class="bi bi-clipboard2-check-fill"></i></div>
+            <div class="stat-icon ink"><i class="bi bi-clipboard-x-fill"></i></div>
             <div class="eyebrow">Form Validation Issues</div>
             <div class="n" id="qc-form-validation">-</div>
             <div class="d">Records that failed or were rejected</div>
+          </div>
+          <div class="stat">
+            <div class="stat-icon gold"><i class="bi bi-people-fill"></i></div>
+            <div class="eyebrow">Child Count Mismatch</div>
+            <div class="n" id="qc-child-count">-</div>
+            <div class="d">Reported eligible children don't match records</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <h3>Survey Date Consistency</h3>
+              <div class="sub">Records where the form start time, submission time, or elapsed duration looks inconsistent. Ought-to-submit day = the day the data collector started the form.</div>
+            </div>
+            <span id="dateConsistencyCount" class="admin-count">0 records</span>
+          </div>
+          <div class="table-wrapper" style="max-height:420px;overflow:auto;border:1px solid var(--border);border-radius:8px">
+            <table>
+              <thead><tr>
+                <th style="min-width:90px">Unique Code</th>
+                <th style="min-width:110px">Ought to Submit (Start)</th>
+                <th style="min-width:110px">Submitted</th>
+                <th style="min-width:140px">Data Collector</th>
+                <th style="min-width:220px">Issue</th>
+              </tr></thead>
+              <tbody id="dateConsistencyBody"><tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px">Loading…</td></tr></tbody>
+            </table>
           </div>
         </div>
 
@@ -1731,6 +1774,10 @@ body.filter-open .chat-fab, body.filter-open .chat-panel { display: none !import
             <div class="v-mc-icon"><i class="bi bi-x-circle-fill"></i></div>
             <div class="v-mc-body"><div class="v-mc-num" id="val-rejected">—</div><div class="v-mc-lbl">Not Approved</div></div>
           </div>
+          <div class="val-mini-card tone-hold">
+            <div class="v-mc-icon"><i class="bi bi-pause-circle-fill"></i></div>
+            <div class="v-mc-body"><div class="v-mc-num" id="val-on-hold">—</div><div class="v-mc-lbl">On Hold</div></div>
+          </div>
           <div class="val-mini-card tone-info">
             <div class="v-mc-icon"><i class="bi bi-people-fill"></i></div>
             <div class="v-mc-body"><div class="v-mc-num" id="val-ras">—</div><div class="v-mc-lbl">Research Assistants</div></div>
@@ -1744,7 +1791,8 @@ body.filter-open .chat-fab, body.filter-open .chat-panel { display: none !import
         <div class="val-tabs">
           <button class="val-tab active" data-vstatus="pending"  onclick="valSetStatus('pending')"><i class="bi bi-hourglass-split"></i> Pending <span class="val-tab-badge" id="val-tab-pending">—</span></button>
           <button class="val-tab" data-vstatus="approved" onclick="valSetStatus('approved')"><i class="bi bi-check-circle-fill"></i> Approved <span class="val-tab-badge" id="val-tab-approved">—</span></button>
-          <button class="val-tab" data-vstatus="rejected" onclick="valSetStatus('rejected')"><i class="bi bi-x-circle-fill"></i> Not Approved / On Hold <span class="val-tab-badge" id="val-tab-rejected">—</span></button>
+          <button class="val-tab" data-vstatus="rejected" onclick="valSetStatus('rejected')"><i class="bi bi-x-circle-fill"></i> Not Approved <span class="val-tab-badge" id="val-tab-rejected">—</span></button>
+          <button class="val-tab" data-vstatus="on_hold" onclick="valSetStatus('on_hold')"><i class="bi bi-pause-circle-fill"></i> On Hold <span class="val-tab-badge" id="val-tab-on_hold">—</span></button>
           <button class="val-tab" data-vstatus="qc" onclick="valSetStatus('qc')"><i class="bi bi-list-check"></i> Quality Checks</button>
         </div>
 
@@ -1755,7 +1803,7 @@ body.filter-open .chat-fab, body.filter-open .chat-panel { display: none !import
               <h3>Quality Checks Reference</h3>
               <div class="sub">The set of QC rules applied to every household record. Rows failing any of these show in the <strong>Pending</strong> tab with the flag chip.</div>
             </div>
-            <span class="admin-count">8 checks</span>
+            <span class="admin-count">10 checks</span>
           </div>
           <div class="val-table-wrap">
             <table class="admin-table val-flags-table" style="min-width:0">
@@ -1807,10 +1855,11 @@ body.filter-open .chat-fab, body.filter-open .chat-panel { display: none !import
                 <th>Education</th>
                 <th>Occupation</th>
                 <th>Settlement</th>
+                <th>Vaccination Card</th>
                 <th>Flags</th>
                 <th>Actions</th>
               </tr></thead>
-              <tbody id="valFlagsBody"><tr><td colspan="13" style="text-align:center;color:var(--text-muted);padding:20px">Loading…</td></tr></tbody>
+              <tbody id="valFlagsBody"><tr><td colspan="14" style="text-align:center;color:var(--text-muted);padding:20px">Loading…</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -3001,14 +3050,47 @@ async function loadQuality() {
   showLoading('Loading quality data…');
   try {
     const qs = buildQS();
-    const [dq, byEnum] = await Promise.all([
+    const [dq, byEnum, vsum, flagged] = await Promise.all([
       api(`/api/dq-metrics${qs}`),
       api(`/api/quality/by-enumerator${qs}`),
+      api('/api/validators/summary'),
+      api('/api/validators/flagged?status=all'),
     ]);
     renderDqCards(dq);
     renderQualityByEnumerator(byEnum);
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = fmt(v); };
+    set('qc-on-hold', vsum.on_hold||0);
+    renderDateConsistencyTable(flagged);
   } catch (e) { toast('Quality error: ' + e.message, true); }
   finally { hideLoading(); }
+}
+
+function renderDateConsistencyTable(rows) {
+  const body = document.getElementById('dateConsistencyBody');
+  const count = document.getElementById('dateConsistencyCount');
+  if (!body) return;
+  const flagged = (rows || []).filter(r => (r.flags || []).some(f => /date consistency/i.test(String(f))));
+  if (count) count.textContent = `${flagged.length.toLocaleString()} record(s)`;
+  if (!flagged.length) {
+    body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px">No date consistency issues in the selected range.</td></tr>';
+    return;
+  }
+  const day = (s) => {
+    if (!s) return '—';
+    const d = new Date(s);
+    if (isNaN(d)) return _esc(String(s));
+    return d.toISOString().slice(0, 10);
+  };
+  body.innerHTML = flagged.map(r => {
+    const flag = (r.flags || []).filter(f => /date consistency/i.test(String(f))).join(', ');
+    return `<tr>
+      <td><strong>${_esc(r.unique_code || '—')}</strong></td>
+      <td>${day(r.form_start)}</td>
+      <td>${day(r.form_submitted)}</td>
+      <td>${_esc(r.ra || '—')}</td>
+      <td><span class="val-flag-chip warn">${_esc(flag)}</span></td>
+    </tr>`;
+  }).join('');
 }
 
 let _qcRaData = [];
@@ -3073,11 +3155,11 @@ function renderDqCards(dq) {
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = fmt(v); };
   set('qc-dup-hh', dq.dup_household_count||0);
   set('qc-rep-child', dq.rep_child_selection||0);
-  set('qc-active-ras', dq.active_ras||0);
   set('qc-ineligible', dq.ineligible_children||0);
   set('qc-dup-children', dq.dup_child_count||0);
   set('qc-settlement', dq.settlement_mismatch||0);
   set('qc-form-validation', dq.form_validation_issues||0);
+  set('qc-child-count', dq.child_count_mismatch||0);
 }
 
 function renderErrorsByLgaChart(data) {
@@ -4321,7 +4403,7 @@ function valSetStatus(s) {
 async function _valLoadSummary() {
   try {
     const s = await api('/api/validators/summary');
-    ['pending','approved','rejected'].forEach(k => {
+    ['pending','approved','rejected','on_hold'].forEach(k => {
       const el = document.getElementById('val-tab-' + k);
       if (el) el.textContent = (s[k] || 0).toLocaleString();
     });
@@ -4330,6 +4412,7 @@ async function _valLoadSummary() {
     set('val-flagged', s.flagged);
     set('val-approved', s.approved);
     set('val-rejected', s.rejected);
+    set('val-on-hold', s.on_hold);
     // Outstanding = records still awaiting a validator decision (pending)
     set('val-outstanding', s.pending);
     try {
@@ -4343,14 +4426,14 @@ async function loadValidatorFlagged() {
   const body = document.getElementById('valFlagsBody');
   const count = document.getElementById('valFlagCount');
   if (!body) return;
-  body.innerHTML = '<tr><td colspan="13" style="text-align:center;color:var(--text-muted);padding:16px">Loading…</td></tr>';
+  body.innerHTML = '<tr><td colspan="14" style="text-align:center;color:var(--text-muted);padding:16px">Loading…</td></tr>';
   _valLoadSummary();
   try {
     const rows = await api('/api/validators/flagged?status=' + encodeURIComponent(_valStatus));
     _valRows = rows;
     if (count) count.textContent = `${rows.length.toLocaleString()} record(s)`;
     if (!rows.length) {
-      body.innerHTML = '<tr><td colspan="13" style="text-align:center;color:var(--text-muted);padding:20px">No records in this state.</td></tr>';
+      body.innerHTML = '<tr><td colspan="14" style="text-align:center;color:var(--text-muted);padding:20px">No records in this state.</td></tr>';
       return;
     }
     body.innerHTML = rows.map(r => {
@@ -4361,6 +4444,11 @@ async function loadValidatorFlagged() {
         ? systemFlags.map(f => chip(f, 'locked', /mismatch|missing|non-eligible/i.test(f))).join('')
           + addedFlags.map(f => chip(f, 'added', /mismatch|missing|non-eligible/i.test(f))).join('')
         : '<span class="val-flag-chip none">— clean —</span>';
+      const vaccThumbs = (r.vacc_cards || []).map(u => `<a href="${_esc(u)}" target="_blank" rel="noopener" title="Open vaccination card"><img src="${_esc(u)}" alt="vacc card" style="width:44px;height:44px;object-fit:cover;border-radius:6px;border:1px solid var(--border);margin:1px" loading="lazy" onerror="this.style.visibility='hidden'"></a>`).join('');
+      const isOnHold = r.status === 'on_hold';
+      const holdBtn = isOnHold
+        ? '<button class="val-icon-btn" title="Remove hold (back to pending)" onclick="validatorHold(\'' + _esc(r.uuid) + '\')"><i class="bi bi-pause-circle-fill" style="color:#d97706"></i></button>'
+        : '<button class="val-icon-btn hold" title="Put on hold" onclick="validatorHold(\'' + _esc(r.uuid) + '\')"><i class="bi bi-pause-circle"></i></button>';
       return `<tr>
         <td><strong>${_esc(r.unique_code || '—')}</strong></td>
         <td>${_esc(r.lga || '—')}</td>
@@ -4373,11 +4461,13 @@ async function loadValidatorFlagged() {
         <td>${_esc(r.education || '—')}</td>
         <td>${_esc(r.occupation || '—')}</td>
         <td>${_esc(r.settlement_type || '—')}</td>
+        <td>${vaccThumbs || '<span style="color:var(--text-muted)">—</span>'}</td>
         <td>${chips || '—'}</td>
         <td><div class="val-row-actions">
           <button class="val-icon-btn" title="Edit" onclick="validatorEdit('${_esc(r.uuid)}')"><i class="bi bi-pencil"></i></button>
           <button class="val-icon-btn approve" title="Approve" onclick="validatorApprove('${_esc(r.uuid)}')"><i class="bi bi-check-lg"></i></button>
           <button class="val-icon-btn reject" title="Reject" onclick="validatorReject('${_esc(r.uuid)}')"><i class="bi bi-x-lg"></i></button>
+          ${holdBtn}
         </div></td>
       </tr>`;
     }).join('');
@@ -4417,6 +4507,20 @@ function validatorEdit(uuid) {
   set('valEditRa', rec.ra || '—');
   set('valEditHead', [rec.head_name, rec.head_gender].filter(Boolean).join(' · ') || '—');
   set('valEditChild', [rec.child_name_age, rec.child_sex].filter(Boolean).join(' · ') || '—');
+
+  const vaccBox = document.getElementById('valEditVacc');
+  if (vaccBox) {
+    const cards = rec.vacc_cards || [];
+    vaccBox.style.display = cards.length ? 'block' : 'none';
+    vaccBox.innerHTML = `<label style="font-size:13px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:6px"><i class="bi bi-file-earmark-image" style="color:#0f766e"></i> Vaccination Card${cards.length > 1 ? 's' : ''}</label>`
+      + cards.map(u => `<a href="${_esc(u)}" target="_blank" rel="noopener" title="Open vaccination card"><img src="${_esc(u)}" alt="vacc card" style="width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid var(--border);margin-right:6px" loading="lazy" onerror="this.style.visibility='hidden'"></a>`).join('');
+  }
+
+  document.querySelectorAll('input[name="valEditStatus"]').forEach(r => { r.checked = false; });
+  if (rec.status && ['approved','rejected','on_hold'].includes(rec.status)) {
+    const preset = document.querySelector(`input[name="valEditStatus"][value="${rec.status}"]`);
+    if (preset) preset.checked = true;
+  }
 
   const sysFlags = rec.system_flags || rec.flags || [];
   const chips = sysFlags.length
@@ -4472,15 +4576,29 @@ async function saveValEdit() {
   const other = (document.getElementById('valEditOther')?.value || '').trim();
   if (other) flags.push(other);
   const note = (document.getElementById('valEditNote')?.value || '').trim();
-  if (!flags.length) { toast('Select at least one error to add, or type an "Other" error.', true); return; }
+  const statusEl = document.querySelector('input[name="valEditStatus"]:checked');
+  const status = statusEl ? statusEl.value : null;
+  const rec = (_valRows || []).find(r => r.uuid === uuid);
+  const statusChanged = status && rec && status !== rec.status;
+  if (!flags.length && !statusChanged) { toast('Choose a decision or add at least one error.', true); return; }
   try {
-    const r = await fetch('/api/validators/' + encodeURIComponent(uuid) + '/flags', {
-      method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ flags, note }),
-    });
-    const d = await r.json();
-    if (!r.ok) throw new Error(d.detail || 'Failed');
-    toast((d.added || []).length ? `Added ${d.added.length} error(s).` : 'Errors already present on this record.');
+    if (statusChanged) {
+      const rr = await fetch('/api/validators/' + encodeURIComponent(uuid) + '/decision', {
+        method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ status }),
+      });
+      const dd = await rr.json();
+      if (!rr.ok) throw new Error(dd.detail || 'Failed');
+    }
+    if (flags.length) {
+      const r = await fetch('/api/validators/' + encodeURIComponent(uuid) + '/flags', {
+        method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ flags, note }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.detail || 'Failed');
+    }
+    toast(statusChanged ? 'Decision updated.' : 'Errors saved.');
     closeValEdit();
     loadValidatorFlagged();
   } catch (e) { toast('Error: ' + e.message, true); }
@@ -4500,6 +4618,7 @@ async function _validatorDecide(uuid, status, label) {
 }
 function validatorApprove(uuid) { _validatorDecide(uuid, 'approved', 'Approved'); }
 function validatorReject(uuid)  { _validatorDecide(uuid, 'rejected', 'Marked Not Approved'); }
+function validatorHold(uuid)    { _validatorDecide(uuid, 'on_hold', 'Put On Hold'); }
 
 // ─── Session guard + user card ─────────────────────────────
 (function _sessionInit() {

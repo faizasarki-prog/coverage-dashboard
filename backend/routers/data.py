@@ -428,6 +428,7 @@ def api_validators_flagged(status: str = "pending", user: User = Depends(get_cur
         col_e_name    = _pick_col(elig, ["Q88. Child name and age", "Q88"])
         col_e_sex     = _pick_col(elig, ["Q89. Sex", "Q89"])
         col_e_parent  = _pick_col(elig, ["_parent_index", "parent_index", "_index"])
+        col_e_vacc    = _pick_col(elig, ["_URL", "vaccination card that was used_URL", "used_URL"])
         # Repeated child: the same Q88 child name + age entered twice within the
         # same household submission (household identity = _parent_index).
         if col_e_uuid and col_e_name:
@@ -446,6 +447,7 @@ def api_validators_flagged(status: str = "pending", user: User = Depends(get_cur
                 children_by_uuid.setdefault(u, []).append({
                     "name_age": str(er.get(col_e_name, "")).strip() if col_e_name else "",
                     "sex":      str(er.get(col_e_sex,  "")).strip() if col_e_sex else "",
+                    "vacc":     str(er.get(col_e_vacc, "")).strip() if col_e_vacc else "",
                 })
 
     # Child Count Mismatch — reported eligible (from HH form) vs actual eligible child rows.
@@ -544,6 +546,7 @@ def api_validators_flagged(status: str = "pending", user: User = Depends(get_cur
         kids = children_by_uuid.get(uuid_val, [])
         child_name_age = "; ".join([k["name_age"] for k in kids if k["name_age"]]) or "—"
         child_sex      = "; ".join([k["sex"] for k in kids if k["sex"]]) or "—"
+        vacc_cards     = [k["vacc"] for k in kids if k.get("vacc")]
 
         system_flags = list(flags)
         added_flags = [f for f in vflags_map.get(uuid_val, []) if f not in system_flags]
@@ -563,6 +566,7 @@ def api_validators_flagged(status: str = "pending", user: User = Depends(get_cur
             "settlement_type": str(r.get(col_settle, "")).strip() if col_settle else "",
             "child_name_age": child_name_age,
             "child_sex": child_sex,
+            "vacc_cards": vacc_cards,
             "expected_children": expected_children,
             "actual_children": actual_children,
             "child_count_diff": child_count_diff,
@@ -607,8 +611,8 @@ def api_validator_decision(
 ) -> dict:
     from ..database import SessionLocal, ValidationDecision
     _ensure_record_in_scope(user, record_uuid)
-    if payload.status not in ("approved", "rejected", "pending"):
-        raise HTTPException(status_code=400, detail="status must be approved, rejected, or pending")
+    if payload.status not in ("approved", "rejected", "pending", "on_hold"):
+        raise HTTPException(status_code=400, detail="status must be approved, rejected, on_hold, or pending")
     with SessionLocal() as db:
         existing = db.query(ValidationDecision).filter(ValidationDecision.record_uuid == record_uuid).one_or_none()
         if existing:
@@ -663,6 +667,7 @@ def api_validator_summary(user: User = Depends(get_current_user)) -> dict:
         "pending": len([r for r in all_records if r["status"] == "pending"]),
         "approved": int(by_status.get("approved", 0)),
         "rejected": int(by_status.get("rejected", 0)),
+        "on_hold": int(by_status.get("on_hold", 0)),
         "total": len(all_records),
         "flagged": len(flagged),
     }

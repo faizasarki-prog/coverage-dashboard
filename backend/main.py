@@ -4,6 +4,7 @@ from pathlib import Path
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi.staticfiles import StaticFiles
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -51,6 +52,19 @@ app = FastAPI(
 app.state.limiter = auth_limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+
+class _NoCacheHTML(BaseHTTPMiddleware):
+    """Force browsers to always fetch fresh HTML so a stale copy of the
+    dashboard can never be shown after a deploy."""
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        if response.headers.get("content-type", "").startswith("text/html"):
+            response.headers["Cache-Control"] = "no-store, max-age=0"
+        return response
+
+
+app.add_middleware(_NoCacheHTML)
+
 if settings.ALLOWED_ORIGINS:
     app.add_middleware(
         CORSMiddleware,
@@ -74,8 +88,8 @@ app.include_router(admin_router)
 
 
 def _serve_react_or(fallback_path: Path) -> str:
-    if _REACT_INDEX.exists():
-        return _REACT_INDEX.read_text(encoding="utf-8")
+    # The React scaffold under frontend/ is not the active dashboard. Always
+    # serve the server-rendered template so a stray build can never replace it.
     return fallback_path.read_text(encoding="utf-8")
 
 

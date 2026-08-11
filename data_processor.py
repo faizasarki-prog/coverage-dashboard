@@ -398,6 +398,31 @@ def compute_dq_metrics(cov, child_info, child_eligible):
     total_flags = dq['dup_households'] + dq['settlement_mismatch'] + dq['stacked_gps'] + dq['mock_gps']
     dq['total_flagged'] = total_flags
 
+    # DQ-08: Child Count Mismatch — the reported number of eligible children on the
+    # household form (total_eligible) vs the actual count of eligible child rows on
+    # the child_info sheet (is_eligible == 1) linked to that submission.
+    child_count_mismatch = 0
+    if child_info is not None and not child_info.empty:
+        elig_col = None
+        for cand in (COL_IS_ELIGIBLE, "is_eligible"):
+            if cand in child_info.columns:
+                elig_col = cand
+                break
+        uuid_col = next((c for c in ("_submission__uuid", "_uuid") if c in child_info.columns), None)
+        total_col = next((c for c in ("total_eligible", "number of eligible children", "how many eligible")
+                          if c in cov.columns), None)
+        hh_uuid_col = next((c for c in (COL_UUID, "_uuid") if c in cov.columns), None)
+        if elig_col and uuid_col and total_col and hh_uuid_col:
+            elig_num = pd.to_numeric(child_info[elig_col], errors="coerce")
+            count_src = child_info.loc[elig_num == 1] if elig_num.notna().any() else child_info
+            actual = {str(k).strip(): int(v) for k, v in count_src.groupby(uuid_col).size().items()}
+            expected = pd.to_numeric(cov[total_col], errors="coerce").fillna(0)
+            uuids = cov[hh_uuid_col].astype(str).str.strip()
+            child_count_mismatch = int(sum(
+                1 for u, e in zip(uuids, expected) if int(e) != actual.get(u, 0)
+            ))
+    dq['child_count_mismatch'] = child_count_mismatch
+
     return dq
 
 
