@@ -379,6 +379,9 @@ def api_validators_flagged(status: str = "pending", user: User = Depends(get_cur
     col_occ        = _pick_col(cov, ["Q21. Occupation", "Q21"])
     col_settle     = COL_SETTLEMENT_TYPE if COL_SETTLEMENT_TYPE in cov.columns else _pick_col(cov, ["Q5. Type of Settlement"])
     col_unique     = COL_HH_CODE if COL_HH_CODE in cov.columns else _pick_col(cov, ["unique_code"])
+    col_total_elig = _pick_col(cov, ["total_eligible", "number of eligible children", "how many eligible"])
+    col_start      = _pick_col(cov, ["start"])
+    col_submitted  = COL_SUBMISSION_TIME if COL_SUBMISSION_TIME in cov.columns else _pick_col(cov, ["_submission_time", "submission_time"])
     wealth_cols    = [c for c in WEALTH_COLS if c in cov.columns]
 
     dup_codes: set = set()
@@ -441,6 +444,21 @@ def api_validators_flagged(status: str = "pending", user: User = Depends(get_cur
                     "sex":      str(er.get(col_e_sex,  "")).strip() if col_e_sex else "",
                 })
 
+    # Child Count Mismatch — reported eligible (from HH form) vs actual child rows
+    actual_child_count_by_uuid: dict[str, int] = {}
+    if child is not None and not child.empty:
+        col_child_uuid2 = _pick_col(child, ["_submission__uuid", "_uuid", "submission_uuid"])
+        if col_child_uuid2:
+            gp = child.groupby(col_child_uuid2).size()
+            actual_child_count_by_uuid = {str(k).strip(): int(v) for k, v in gp.items()}
+
+    # Survey Date Consistency — form start vs submission
+    def _parse_dt(v):
+        try:
+            return pd.to_datetime(v, errors="coerce", utc=True)
+        except Exception:
+            return None
+
     rows: list[dict[str, Any]] = []
     for _, r in cov.iterrows():
         flags = []
@@ -473,6 +491,42 @@ def api_validators_flagged(status: str = "pending", user: User = Depends(get_cur
             if uuid_val in missing_vacc_uuids:
                 flags.append("Missing vacc card")
 
+        # Child Count Mismatch: reported eligible vs actual child rows
+        expected_children = None
+        actual_children = None
+        child_count_diff = None
+        if col_total_elig and uuid_val:
+            try:
+                expected_children = int(float(str(r.get(col_total_elig, "")).strip() or 0))
+                actual_children = actual_child_count_by_uuid.get(uuid_val, 0)
+                child_count_diff = expected_children - actual_children
+                if expected_children != actual_children:
+                    flags.append("Child Count Mismatch")
+            except (ValueError, TypeError):
+                pass
+
+        # Survey Date Consistency: start vs _submission_time
+        form_start = None
+        form_submitted = None
+        form_duration_min = None
+        if col_start and col_submitted:
+            start_dt = _parse_dt(r.get(col_start))
+            sub_dt = _parse_dt(r.get(col_submitted))
+            if start_dt is not None and sub_dt is not None and pd.notna(start_dt) and pd.notna(sub_dt):
+                form_start = str(start_dt)
+                form_submitted = str(sub_dt)
+                try:
+                    diff_s = (sub_dt - start_dt).total_seconds()
+                    form_duration_min = round(diff_s / 60.0, 1)
+                    if diff_s < 0:
+                        flags.append("Date Consistency: submitted before start")
+                    elif diff_s < 300:  # < 5 minutes = implausibly quick
+                        flags.append("Date Consistency: form too short (<5m)")
+                    elif diff_s > 86400:  # > 24 hours
+                        flags.append("Date Consistency: form spans >24h")
+                except Exception:
+                    pass
+
         record_status = decisions.get(uuid_val, "pending")
         if status and status != "all" and record_status != status:
             continue
@@ -499,6 +553,12 @@ def api_validators_flagged(status: str = "pending", user: User = Depends(get_cur
             "settlement_type": str(r.get(col_settle, "")).strip() if col_settle else "",
             "child_name_age": child_name_age,
             "child_sex": child_sex,
+            "expected_children": expected_children,
+            "actual_children": actual_children,
+            "child_count_diff": child_count_diff,
+            "form_start": form_start,
+            "form_submitted": form_submitted,
+            "form_duration_minutes": form_duration_min,
             "flags": combined_flags,
             "system_flags": system_flags,
             "validator_flags": added_flags,
