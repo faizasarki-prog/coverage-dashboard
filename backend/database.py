@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Generator
 
+from geoalchemy2 import Geometry
 from sqlalchemy import (
     Boolean,
     Column,
@@ -19,7 +20,10 @@ from sqlalchemy.orm import Session, declarative_base, relationship, sessionmaker
 from . import settings
 
 _connect_args: dict = {}
-if settings.DATABASE_URL.startswith("sqlite"):
+if settings.IS_POSTGRES:
+    # psycopg2 + GeoAlchemy2: let the driver do its own client encoding.
+    pass
+elif settings.DATABASE_URL.startswith("sqlite"):
     _connect_args = {"check_same_thread": False}
 
 engine = create_engine(settings.DATABASE_URL, connect_args=_connect_args, future=True)
@@ -130,6 +134,10 @@ class GpsPoint(Base):
     ra = Column(Text, nullable=True)
     lat = Column(Float, nullable=False)
     lng = Column(Float, nullable=False)
+    # PostGIS geometry (only on PostgreSQL). Kept alongside lat/lng so the
+    # existing ORM queries and shapely-based matching keep working unchanged.
+    if settings.IS_POSTGRES:
+        geom = Column(Geometry("POINT", srid=4326), nullable=True)
     reported_lga = Column(Text, nullable=True)
     reported_ward = Column(Text, nullable=True)
     reported_community = Column(Text, nullable=True)
@@ -308,6 +316,9 @@ def get_active_project_id() -> int | None:
 
 
 def init_db() -> None:
+    if settings.IS_POSTGRES:
+        with engine.begin() as conn:
+            conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis"))
     Base.metadata.create_all(bind=engine)
     _run_sqlite_migrations()
     with SessionLocal() as db:

@@ -1,7 +1,10 @@
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 BASE_DIR: Path = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / ".env")
 
 SECRET_KEY: str = os.environ.get("SECRET_KEY", "")
 if len(SECRET_KEY.encode("utf-8")) < 32:
@@ -13,6 +16,9 @@ SUPER_ADMIN_EMAIL: str = os.environ.get("SUPER_ADMIN_EMAIL", "admin@ehealthniger
 SUPER_ADMIN_PASSWORD: str = os.environ.get("SUPER_ADMIN_PASSWORD", "changeme-in-prod-abc123!")
 
 DATABASE_URL: str = os.environ.get("DATABASE_URL", "sqlite:///./admin.db")
+
+# True when the application database is PostgreSQL (with PostGIS for geospatial).
+IS_POSTGRES: bool = DATABASE_URL.startswith(("postgresql", "postgres"))
 
 _origins_raw: str = os.environ.get("ALLOWED_ORIGINS", "")
 ALLOWED_ORIGINS: list[str] = [o.strip() for o in _origins_raw.split(",") if o.strip()]

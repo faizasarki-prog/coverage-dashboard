@@ -5,12 +5,15 @@ services:
     ports:
       - "5051:5051"
     environment:
-      SECRET_KEY: "dev-secret-key-that-is-at-least-32-bytes-long-change-me"
-      SUPER_ADMIN_EMAIL: "admin"
-      SUPER_ADMIN_PASSWORD: "admin123"
-      DATABASE_URL: "sqlite:////app/data/admin.db"
-      ALLOWED_ORIGINS: ""
-      ENABLE_DOCS: "false"
+      # DATABASE_URL comes from .env (gitignored) so credentials stay out of git.
+      DATABASE_URL: ${DATABASE_URL}
+      SECRET_KEY: ${SECRET_KEY}
+      SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL}
+      SUPER_ADMIN_PASSWORD: ${SUPER_ADMIN_PASSWORD}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+      ENABLE_DOCS: ${ENABLE_DOCS}
+      KOBO_API_TOKEN: ${KOBO_API_TOKEN}
+      KOBO_DATA_URL: ${KOBO_DATA_URL}
     volumes:
       - ./data:/app/data
     restart: unless-stopped

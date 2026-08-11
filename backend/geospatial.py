@@ -13,6 +13,7 @@ from shapely.geometry import Point, shape as shp_shape
 from shapely.ops import transform as shp_transform
 from shapely.prepared import prep
 
+from . import settings
 from .database import GpsPoint, Project, SessionLocal
 
 WGS84_TO_MERCATOR = Transformer.from_crs("EPSG:4326", "EPSG:3857", always_xy=True)
@@ -277,6 +278,7 @@ def rebuild_gps_points_table(cov: pd.DataFrame, project_id: int | None = None) -
                 uuid=str(r[uuid_col]).strip() if uuid_col and pd.notna(r.get(uuid_col)) else None,
                 ra=str(r[ra_col]).strip() if ra_col and pd.notna(r.get(ra_col)) else None,
                 lat=lat, lng=lng,
+                **({"geom": f"SRID=4326;POINT({lng} {lat})"} if settings.IS_POSTGRES else {}),
                 reported_lga=rep_lga, reported_ward=rep_ward, reported_community=rep_comm,
                 matched_lga=m_lga, matched_ward=m_ward, matched_settlement=m_settlement,
                 in_lga=bool(m_lga), in_ward=bool(m_ward), in_settlement=bool(m_settlement),
