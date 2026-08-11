@@ -897,6 +897,7 @@ body.filter-open .chat-fab, body.filter-open .chat-panel { display: none !import
           <i class="bi bi-shield-lock" style="color:#B91C1C"></i> System-detected errors (cannot be removed)
         </label>
         <div id="valEditSystemChips" style="display:flex;flex-wrap:wrap;gap:4px"></div>
+        <div id="valEditDetail" style="display:none;margin-top:8px;font-size:12.5px;color:var(--text-secondary);line-height:1.6"></div>
       </div>
 
       <div>
@@ -4394,6 +4395,10 @@ const VAL_EDIT_CATEGORIES = [
   'Repetitive Child',
   'Non-eligible child',
   'Missing vacc card',
+  'Child Count Mismatch',
+  'Date Consistency: submitted before start',
+  'Date Consistency: form too short (<5m)',
+  'Date Consistency: form spans >24h',
   'Stacked GPS',
   'Mock GPS',
 ];
@@ -4419,6 +4424,20 @@ function validatorEdit(uuid) {
     : '<span class="val-flag-chip none">— no system-detected errors —</span>';
   const sysBox = document.getElementById('valEditSystemChips');
   if (sysBox) sysBox.innerHTML = chips + (sysFlags.length ? '' : '');
+
+  const detail = [];
+  if (rec.child_count_diff !== null && rec.child_count_diff !== undefined) {
+    detail.push(`Eligible children — reported: <strong>${_esc(rec.expected_children)}</strong>, on record: <strong>${_esc(rec.actual_children)}</strong>`);
+  }
+  if (rec.form_duration_minutes !== null && rec.form_duration_minutes !== undefined) {
+    const dur = rec.form_duration_minutes < 0 ? 'n/a (submission precedes start)' : `${rec.form_duration_minutes} min`;
+    detail.push(`Form duration: <strong>${_esc(dur)}</strong> (${_esc(rec.form_start || '—')} → ${_esc(rec.form_submitted || '—')})`);
+  }
+  const detailBox = document.getElementById('valEditDetail');
+  if (detailBox) {
+    detailBox.style.display = detail.length ? 'block' : 'none';
+    detailBox.innerHTML = detail.map(d => `<div>${d}</div>`).join('');
+  }
 
   const addBox = document.getElementById('valEditFlagOptions');
   if (addBox) {

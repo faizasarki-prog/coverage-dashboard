@@ -32,6 +32,10 @@ from data_processor import (
 
 router = APIRouter()
 
+# Validator quality-check thresholds (api_validators_flagged)
+MIN_FORM_SECONDS = 300    # < 5 minutes = implausibly quick form fill
+MAX_FORM_SECONDS = 86400  # > 24 hours = form left open / paused overnight
+
 
 def _allowed_lgas(user: User) -> list[str] | None:
     """LGAs a validator may see. None means unrestricted (admins / super admins)."""
@@ -444,13 +448,17 @@ def api_validators_flagged(status: str = "pending", user: User = Depends(get_cur
                     "sex":      str(er.get(col_e_sex,  "")).strip() if col_e_sex else "",
                 })
 
-    # Child Count Mismatch — reported eligible (from HH form) vs actual child rows
+    # Child Count Mismatch — reported eligible (from HH form) vs actual eligible child rows.
+    # Only eligible children (is_eligible == 1) are counted; ineligible child rows are
+    # present on the child_info sheet and must not inflate the "actual" side.
     actual_child_count_by_uuid: dict[str, int] = {}
-    if child is not None and not child.empty:
-        col_child_uuid2 = _pick_col(child, ["_submission__uuid", "_uuid", "submission_uuid"])
-        if col_child_uuid2:
-            gp = child.groupby(col_child_uuid2).size()
-            actual_child_count_by_uuid = {str(k).strip(): int(v) for k, v in gp.items()}
+    if child is not None and not child.empty and col_child_uuid:
+        count_src = child
+        if col_c_eligible:
+            elig_num = pd.to_numeric(child[col_c_eligible], errors="coerce")
+            count_src = child.loc[elig_num == 1]
+        gp = count_src.groupby(col_child_uuid).size()
+        actual_child_count_by_uuid = {str(k).strip(): int(v) for k, v in gp.items()}
 
     # Survey Date Consistency — form start vs submission
     def _parse_dt(v):
@@ -505,7 +513,8 @@ def api_validators_flagged(status: str = "pending", user: User = Depends(get_cur
             except (ValueError, TypeError):
                 pass
 
-        # Survey Date Consistency: start vs _submission_time
+        # Survey Date Consistency: start (device-local) vs _submission_time (server UTC).
+        # Negative durations are typically device clock drift rather than timezone offset.
         form_start = None
         form_submitted = None
         form_duration_min = None
@@ -520,9 +529,9 @@ def api_validators_flagged(status: str = "pending", user: User = Depends(get_cur
                     form_duration_min = round(diff_s / 60.0, 1)
                     if diff_s < 0:
                         flags.append("Date Consistency: submitted before start")
-                    elif diff_s < 300:  # < 5 minutes = implausibly quick
+                    elif diff_s < MIN_FORM_SECONDS:
                         flags.append("Date Consistency: form too short (<5m)")
-                    elif diff_s > 86400:  # > 24 hours
+                    elif diff_s > MAX_FORM_SECONDS:
                         flags.append("Date Consistency: form spans >24h")
                 except Exception:
                     pass
